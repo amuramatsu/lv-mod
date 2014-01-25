@@ -842,13 +842,17 @@ private void CommandNextPage( unsigned int arg )
 private void CommandRepeatForward( unsigned int arg )
 {
   if( NULL != f->find.pattern )
-    message = CommandFindContinue( f, f->find.before_direction == FORWARD ? FORWARD : BACKWARD);
+    message = CommandFindContinue( f,
+      ( less_compatible && f->find.before_direction == BACKWARD )
+	? BACKWARD : FORWARD );
 }
 
 private void CommandRepeatBackward( unsigned int arg )
 {
   if( NULL != f->find.pattern )
-    message = CommandFindContinue( f, f->find.before_direction == FORWARD ? BACKWARD : FORWARD);
+    message = CommandFindContinue( f,
+      ( less_compatible && f->find.before_direction == BACKWARD )
+	? FORWARD : BACKWARD );
 }
 
 private void CommandFindForward( unsigned int arg )
