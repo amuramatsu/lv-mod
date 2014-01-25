@@ -71,6 +71,20 @@ static int isUTF8( byte *str, int length )
 }
 #endif /* MSDOS */
 
+#ifdef USE_UTF16
+private int isUTF16( byte *str, int length )
+{
+  if (length < 2)
+    return 0;
+  /* check BOM */
+  if (str[0] == 0xfe && str[1] == 0xff)
+    return UTF_16BE;
+  if (str[0] == 0xff && str[1] == 0xfe)
+    return UTF_16LE;
+  return 0;
+}
+#endif /* USE_UTF16 */
+
 private byte GuessCodingSystem_EastAsia( byte *str, int length,
 					 byte defaultEuc, char *language )
 {
@@ -219,6 +233,14 @@ public byte GuessCodingSystem( byte *str, int length, byte defaultEuc )
     use_locale = 0;
 
   if (use_locale) {
+#ifdef USE_UTF16
+    /*
+     * UTF16 can detect by BOM
+     */
+    i = isUTF16( str, length );
+    if (i != 0)
+      return i;
+#endif /* USE_UTF16 */
 #ifndef MSDOS /* IF NOT DEFINED */
     /*
      * Since UTF-8 is a strict coding system, it is unlikely that
@@ -276,6 +298,14 @@ public byte GuessCodingSystem( byte *str, int length, byte defaultEuc )
   } else
 #endif /* HAVE_SETLOCALE */
   {
+#ifdef USE_UTF16
+    /*
+     * UTF16 can detect by BOM
+     */
+    i = isUTF16( str, length );
+    if (i != 0)
+      return i;
+#endif /* USE_UTF16 */
 #ifndef MSDOS /* IF NOT DEFINED */
     /*
      * Since UTF-8 is a strict coding system, it is unlikely that

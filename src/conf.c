@@ -206,6 +206,17 @@ private void SetCodingSystem( byte *s, byte *codingSystem, byte *location )
     }
     break;
 #endif /* MSDOS */
+#ifdef USE_UTF16
+  case 'w':
+    switch( *( s + 2 ) ){
+    case 'a': *codingSystem = UTF_16;		break;
+    case 'l': *codingSystem = UTF_16LE;		break;
+    case 'e': *codingSystem = UTF_16BE;		break;
+    default:
+      *codingSystem = UTF_8;
+    }
+    break;
+#endif /* USE_UTF16 */
   case 'r': *codingSystem = RAW;		break;
   default:
     UnknownOption( s, location );

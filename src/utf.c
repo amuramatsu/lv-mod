@@ -339,3 +339,93 @@ public void EncodeUTF8( i_str_t *istr, int head, int tail,
     }
   }
 }
+
+#ifdef USE_UTF16
+
+public void DecodeUTF16( state_t *state, byte codingSystem )
+{
+  byte ch1, ch2;
+  ic_t uni;
+
+  for( ; ; ){
+    if (UTF_16 == codingSystem) {
+      GetChar( ch2 );
+      GetChar( ch1 );
+      uni = (ic_t)((ch1 << 8) | ch2);
+      if (uni == UNICODE_BOM) {
+	codingSystem = UTF16LE;
+	continue;
+      } 
+      uni = (ic_t)((ch2 << 8) | ch1);
+      if (uni == UNICODE_BOM) {
+	codingSystem = UTF16BE;
+	continue;
+      } 
+      /* fallthru assume UTF_16LE */
+    } else if (UTF_16BE == codingSystem) {
+      GetChar( ch1 );
+      GetChar( ch2 );
+    } else {
+      GetChar( ch2 );
+      GetChar( ch1 );
+    }
+
+    if (ch1 == 0 && ch2 <= SP ){
+      if( SP == ch2 )
+	DecodeAddSpace( state->attr );
+      else if( ESC == ch2 ){
+	if( FALSE == DecodeEscape( state ) )
+	  break;
+      } else if( HT == ch2 )
+	DecodeAddTab( state->attr );
+      else if( BS == ch2 )
+	DecodeAddBs();
+      else
+	DecodeAddControl( ch2 );
+    } else if( ch1 == 0 && ch2 < (ic_t)DEL ){
+      DecodeAddIchar( ASCII, (ic_t)ch2, state->attr );
+    } else {
+      uni = (ic_t)((ch1 << 8) | ch2);
+      if (uni != UNICODE_BOM)
+	DecodeAddUnicode( state->attr, uni );
+    }
+  }
+}
+
+public void EncodeUTF16( i_str_t *istr, int head, int tail,
+			byte codingSystem, boolean_t binary )
+{
+  int idx, attr;
+  ic_t ic;
+  byte cset;
+
+  for( idx = head ; idx < tail ; idx++ ){
+    cset = istr[ idx ].charset;
+    ic = istr[ idx ].c;
+    attr = (int)istr[ idx ].attr << 8;
+    if( cset < PSEUDO ){
+      if( ASCII == cset ){
+	if (UTF_16BE == codingSystem) {
+	  EncodeAddChar( attr, ic );
+	  EncodeAddChar( attr, 0 );
+	} else {
+	  EncodeAddChar( attr, 0 );
+	  EncodeAddChar( attr, ic );
+	}
+      } else {
+	if( UNICODE != cset )
+	  ic = RevUNI( ic, &cset );
+	if (UTF_16BE == codingSystem) {
+	  EncodeAddChar( attr, ic >> 8 );
+	  EncodeAddChar( attr, 0xff & ic );
+	} else {
+	  EncodeAddChar( attr, 0xff & ic );
+	  EncodeAddChar( attr, ic >> 8 );
+	}
+      }
+    } else if( FALSE == EncodeAddPseudo( attr, ic, cset, binary ) ){
+      break;
+    }
+  }
+}
+#endf /* USE_UTF16 */

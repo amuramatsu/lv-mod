@@ -76,7 +76,14 @@ private encode_table_t encodeTable[ C_TABLE_SIZE ] = {
   EncodeISO2022cn,		/* ISO_2022_CN */
   EncodeISO2022jp,		/* ISO_2022_JP */
   EncodeISO2022kr,		/* ISO_2022_KR */
+#ifdef USE_UTF16
+  EncodeRaw,			/* RAW */
+  EncodeUTF16,			/* UTF16 (same of UTF16LE) */
+  EncodeUTF16,			/* UTF16LE */
+  EncodeUTF16			/* UTF16BE */
+#else 
   EncodeRaw			/* RAW */
+#endif
 };
 
 #define HexChar( c )	( (c) < 10 ? '0' + (c) : (c) + '7' )
