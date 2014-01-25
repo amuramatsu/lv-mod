@@ -288,10 +288,6 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
 	if( TRUE == allow_interrupt )
 	  bdos( 0x0b, 0, 0 );
 #endif /* MSDOS */
-#ifdef WIN32NATIVE
-	if( TRUE == allow_interrupt )
-	  ConsoleEnableCtrlC(TRUE);
-#endif /* WIN32NATIVE */
 	if( TRUE == kb_interrupted )
 	  return FALSE;
       }

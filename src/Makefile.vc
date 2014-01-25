@@ -3,7 +3,7 @@
 #   target: all, clean
 ########################################################################
 
-# MSDOS
+# VisualC++ 2008 Express
 CC = cl
 CFLAGS = /O2 /I. /DWIN32NATIVE /DRETSIGTYPE=void /DHAVE_SETLOCALE
 

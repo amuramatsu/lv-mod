@@ -69,8 +69,4 @@ public void ConsoleScrollUp();
 public void ConsoleScrollDown();
 public void ConsoleSetAttribute( byte attr );
 
-#ifdef WIN32NATIVE
-public void ConsoleEnableCtrlC(int en);
-#endif
-
 #endif /* __CONSOLE_H__ */
