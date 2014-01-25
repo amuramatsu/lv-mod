@@ -60,6 +60,7 @@
 #include <attr.h>
 #include <begin.h>
 #include <console.h>
+#include <uty.h>
 
 #define ANSI_ATTR_LENGTH	8
 
@@ -75,6 +76,8 @@ typedef struct _console_buf_saved {
   BOOL                       valid;
 } CONSOLE_BUF_SAVED;
 private CONSOLE_BUF_SAVED old_console_buf;
+private unsigned char *charbuf;
+private WORD *attrbuf;
 #endif
 
 #if (defined( MSDOS ) || defined( WIN32 )) && !defined(WIN32NATIVE)
@@ -210,6 +213,42 @@ RestoreConsoleBuffer(CONSOLE_BUF_SAVED *save)
   }
 }
 
+private WORD Win32Attribute( byte attr )
+{
+  WORD w;
+  if (attr == 0 || ATTR_STANDOUT & attr) {
+    w = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
+  }
+  else if (ATTR_REVERSE & attr) {
+    if (ATTR_COLOR_R & attr)
+      w |= BACKGROUND_RED;
+    if (ATTR_COLOR_G & attr)
+      w |= BACKGROUND_GREEN;
+    if (ATTR_COLOR_B & attr)
+      w |= BACKGROUND_BLUE;
+    if (ATTR_BLINK & attr)
+      w |= FOREGROUND_RED | BACKGROUND_INTENSITY;
+    if (ATTR_UNDERLINE & attr)
+      w |= FOREGROUND_BLUE | BACKGROUND_INTENSITY;
+    if (ATTR_HILIGHT & attr)
+      w |= BACKGROUND_INTENSITY;
+  }
+  else {
+    if (ATTR_COLOR_R & attr)
+      w |= FOREGROUND_RED;
+    if (ATTR_COLOR_G & attr)
+      w |= FOREGROUND_GREEN;
+    if (ATTR_COLOR_B & attr)
+      w |= FOREGROUND_BLUE;
+    if (ATTR_BLINK & attr)
+      w |= BACKGROUND_RED | FOREGROUND_INTENSITY;
+    if (ATTR_UNDERLINE & attr)
+      w |= BACKGROUND_BLUE | FOREGROUND_INTENSITY;
+    if (ATTR_HILIGHT & attr)
+      w |= FOREGROUND_INTENSITY;
+  }
+  return w;
+}
 #endif /* WIN32NATIVE */
 
 public void ConsoleInit()
@@ -308,6 +347,10 @@ public void ConsoleGetWindowSize()
     WIDTH = info.dwSize.X;
     HEIGHT = info.srWindow.Bottom - info.srWindow.Top + 1;
   }
+  if (charbuf) free(charbuf);
+  if (attrbuf) free(attrbuf);
+  charbuf = (unsigned char *)Malloc(sizeof(unsigned char) * WIDTH);
+  attrbuf = (WORD *)Malloc(sizeof(WORD) * WIDTH);
 #endif /* WIN32NATIVE */
 
 #ifdef UNIX
@@ -357,8 +400,8 @@ public void ConsoleTermInit()
    */
 
 #ifdef WIN32NATIVE
-  hStdin  = GetStdHandle(STD_INPUT_HANDLE);   /* …∏Ω‡∆˛Œœ•œ•Û•…•Î§ŒºË∆¿ (J*/(B
-  hStdout = GetStdHandle(STD_OUTPUT_HANDLE);  /* …∏Ω‡Ω–Œœ•œ•Û•…•Î§ŒºË∆¿ (J*/(B
+  hStdin  = GetStdHandle(STD_INPUT_HANDLE);   /* $BI8=`F~NO%O%s%I%k$N<hF@(B */
+  hStdout = GetStdHandle(STD_OUTPUT_HANDLE);  /* $BI8=`=PNO%O%s%I%k$N<hF@(B */
 
   ConsoleGetWindowSize();
   no_scroll = FALSE;
@@ -506,11 +549,11 @@ public void ConsoleSetUp()
 #endif /* MSDOS || WIN32NATIVE */
 
 #ifdef WIN32NATIVE
-  /* stdin •Í•¿•§•Ï•Ø•»ª˛§Œ¬–ΩË° (Jstdin§Úunbuffered(B (Jmode(B §À°À(J*/(B
+  /* stdin $B%j%@%$%l%/%H;~$NBP=h!J(Bstdin$B$r(Bunbuffered mode $B$K!K(B*/
   setvbuf(stdin, NULL, _IONBF, 0);
   setmode(fileno(stdin), O_BINARY);
   if (GetConsoleMode(hStdin, &oldConsoleMode)) {
-    /* Win32•≥•Û•Ω°º•Î§ŒæÏπÁ§œ«∞§Œ§ø§·•¿•§•Ï•Ø•»•‚°º•…§À¿ﬂƒÍ (J*/(B
+    /* Win32$B%3%s%=!<%k$N>l9g$OG0$N$?$a%@%$%l%/%H%b!<%I$K@_Dj(B */
     bStdinIsConsole = TRUE;
     newConsoleMode = oldConsoleMode;
     oldConsoleMode &= ~(ENABLE_PROCESSED_INPUT |
@@ -681,7 +724,7 @@ public int ConsoleGetChar()
   if (bStdinIsConsole) {
       c = getch_replacement_for_msvc();
   } else {
-      /* stdin §¨•Í•¿•§•Ï•Ø•»§µ§Ï§∆§§§ÎæÏπÁ° §Ô§Í§»≈¨≈ˆ°À (J*/(B
+      /* stdin $B$,%j%@%$%l%/%H$5$l$F$$$k>l9g!J$o$j$HE,Ev!K(B */
       c = fgetc(stdin);
       if (c == '\n') c = '\r';
       if (c == EOF) return EOF;
@@ -748,6 +791,47 @@ public void ConsolePrints( byte *str )
 
 public void ConsolePrintsStr( str_t *str, int length )
 {
+#ifdef WIN32NATIVE
+  int i;
+  DWORD written;
+  CONSOLE_SCREEN_BUFFER_INFO info;
+  COORD curpos;
+  unsigned char *cp; 
+  WORD *ap;
+
+  GetConsoleScreenBufferInfo(hStdout, &info);
+  curpos = info.dwCursorPosition;
+  
+  cp = charbuf; ap = attrbuf;
+  for (i=0; i < length; i++) {
+#if 0
+    if (str[i] & 0xff == LF) {
+      if (cp != charbuf) {
+	WriteConsoleOutputCharacter(hStdout, charbuf, cp-charbuf, curpos,
+				    &written);
+	WriteConsoleOutputAttribute(hStdout, attrbuf, ap-attrbuf, curpos,
+				    &written);
+	cp = charbuf; ap = attrbuf;
+	curpos.X += written;
+	while (curpos.X >= WIDTH) {
+	  curpos.X -= WIDTH; curpos.Y++;
+	}
+      }
+      curpos.X = 0; curpos.Y++;
+    }
+    else
+#endif
+    {
+      *cp++ = str[i] & 0xff;
+      *ap++ = Win32Attribute((str[i] & 0xff00) >> 8);
+    }
+  }
+  if (cp != charbuf) {
+    WriteConsoleOutputCharacter(hStdout, charbuf, cp-charbuf, curpos, &written);
+    WriteConsoleOutputAttribute(hStdout, attrbuf, ap-attrbuf, curpos, &written);
+  }
+  ConsoleSetAttribute( 0 );
+#else /* !WIN32NATIVE */
   int i;
   byte attr, lastAttr;
 
@@ -761,6 +845,7 @@ public void ConsolePrintsStr( str_t *str, int length )
   }
   if( 0 != attr )
     ConsoleSetAttribute( 0 );
+#endif /* WIN32NATIVE */
 }
 
 public void ConsoleFlush()
@@ -832,26 +917,26 @@ public void ConsoleClearScreen()
   coordScreen.X = 0;
   coordScreen.Y = 0;
   
-  /* •≥•Û•Ω°º•Î§Œ•≠•„•È•Ø•ø•–•√•’•°æ Û§ÚºË∆¿ (J*/(B
+  /* $B%3%s%=!<%k$N%-%c%i%/%?%P%C%U%!>pJs$r<hF@(B */
   if (GetConsoleScreenBufferInfo(hStdout, &csbi) == FALSE)
     return;
 
-  /* •≠•„•È•Ø•ø•–•√•’•°•µ•§•∫§Ú∑◊ªª (J*/(B
+  /* $B%-%c%i%/%?%P%C%U%!%5%$%:$r7W;;(B */
   dwConsoleSize = csbi.dwSize.X * csbi.dwSize.Y;
 
-  /* •≠•„•È•Ø•ø•–•√•’•°§Ú∂ı«Ú§«À‰§·§Î (J*/(B
+  /* $B%-%c%i%/%?%P%C%U%!$r6uGr$GKd$a$k(B */
   FillConsoleOutputCharacter(
     hStdout, ' ', dwConsoleSize, coordScreen, &dwCharsWritten);
 
-  /* ∏Ω∫ﬂ§Œ•∆•≠•π•»¬∞¿≠§ŒºË∆¿ (J*/(B
+  /* $B8=:_$N%F%-%9%HB0@-$N<hF@(B */
   if (GetConsoleScreenBufferInfo(hStdout, &csbi) == FALSE)
     return;
 
-  /* §π§Ÿ§∆§Œ ∏ª˙§À¬–§∑§∆ºË∆¿§∑§ø•∆•≠•π•»¬∞¿≠§Ú≈¨Õ—§π§Î (J*/(B
+  /* $B$9$Y$F$NJ8;z$KBP$7$F<hF@$7$?%F%-%9%HB0@-$rE,MQ$9$k(B */
   FillConsoleOutputAttribute(
     hStdout, csbi.wAttributes, dwConsoleSize, coordScreen, &dwCharsWritten);
 
-  /* •´°º•Ω•Î∞Ã√÷§Ú∫∏æÂ≥—§À∞‹∆∞ (J*/(B
+  /* $B%+!<%=%k0LCV$r:8>e3Q$K0\F0(B */
   SetConsoleCursorPosition(hStdout, coordScreen);
 #else
   tputs( clear_screen, 1, putfunc );
@@ -866,27 +951,27 @@ public void ConsoleClearRight()
   DWORD                       dwConsoleSize;
   CONSOLE_SCREEN_BUFFER_INFO  csbi;
 
-  /* •≥•Û•Ω°º•Î§Œ•≠•„•È•Ø•ø•–•√•’•°æ Û§ÚºË∆¿ (J*/(B
+  /* $B%3%s%=!<%k$N%-%c%i%/%?%P%C%U%!>pJs$r<hF@(B */
   if (GetConsoleScreenBufferInfo(hStdout, &csbi) == FALSE)
     return;
   coordScreen = csbi.dwCursorPosition;
 
-  /* •≠•„•È•Ø•ø•–•√•’•°•µ•§•∫§Ú∑◊ªª (J*/(B
+  /* $B%-%c%i%/%?%P%C%U%!%5%$%:$r7W;;(B */
   dwConsoleSize = csbi.dwSize.X - coordScreen.X;
 
-  /* •≠•„•È•Ø•ø•–•√•’•°§Ú∂ı«Ú§«À‰§·§Î (J*/(B
+  /* $B%-%c%i%/%?%P%C%U%!$r6uGr$GKd$a$k(B */
   FillConsoleOutputCharacter(
     hStdout, ' ', dwConsoleSize, coordScreen, &dwCharsWritten);
 
-  /* ∏Ω∫ﬂ§Œ•∆•≠•π•»¬∞¿≠§ŒºË∆¿ (J*/(B
+  /* $B8=:_$N%F%-%9%HB0@-$N<hF@(B */
   if (GetConsoleScreenBufferInfo(hStdout, &csbi) == FALSE)
     return;
 
-  /* §π§Ÿ§∆§Œ ∏ª˙§À¬–§∑§∆ºË∆¿§∑§ø•∆•≠•π•»¬∞¿≠§Ú≈¨Õ—§π§Î (J*/(B
+  /* $B$9$Y$F$NJ8;z$KBP$7$F<hF@$7$?%F%-%9%HB0@-$rE,MQ$9$k(B */
   FillConsoleOutputAttribute(
     hStdout, csbi.wAttributes, dwConsoleSize, coordScreen, &dwCharsWritten);
 
-  /* •´°º•Ω•Î∞Ã√÷§Ú§‚§»§ÀÃ·§π (J*/(B
+  /* $B%+!<%=%k0LCV$r$b$H$KLa$9(B */
   SetConsoleCursorPosition(hStdout, coordScreen);
 #else
   tputs( clr_eol, 1, putfunc );
@@ -943,39 +1028,7 @@ private byte prevAttr = 0;
 public void ConsoleSetAttribute( byte attr )
 {
 #ifdef WIN32NATIVE
-  WORD w = 0;
-  if (attr == 0 || ATTR_STANDOUT & attr) {
-    w = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
-  }
-  else if (ATTR_REVERSE & attr) {
-    if (ATTR_COLOR_R & attr)
-      w |= BACKGROUND_RED;
-    if (ATTR_COLOR_G & attr)
-      w |= BACKGROUND_GREEN;
-    if (ATTR_COLOR_B & attr)
-      w |= BACKGROUND_BLUE;
-    if (ATTR_BLINK & attr)
-      w |= FOREGROUND_RED | BACKGROUND_INTENSITY;
-    if (ATTR_UNDERLINE & attr)
-      w |= FOREGROUND_BLUE | BACKGROUND_INTENSITY;
-    if (ATTR_HILIGHT & attr)
-      w |= BACKGROUND_INTENSITY;
-  }
-  else {
-    if (ATTR_COLOR_R & attr)
-      w |= FOREGROUND_RED;
-    if (ATTR_COLOR_G & attr)
-      w |= FOREGROUND_GREEN;
-    if (ATTR_COLOR_B & attr)
-      w |= FOREGROUND_BLUE;
-    if (ATTR_BLINK & attr)
-      w |= BACKGROUND_RED | FOREGROUND_INTENSITY;
-    if (ATTR_UNDERLINE & attr)
-      w |= BACKGROUND_BLUE | FOREGROUND_INTENSITY;
-    if (ATTR_HILIGHT & attr)
-      w |= FOREGROUND_INTENSITY;
-  }
-  SetConsoleTextAttribute(hStdout, w);
+  SetConsoleTextAttribute(hStdout, Win32Attribute(attr));
   prevAttr = attr;
 #else /* !WIN32NATIVE */
 #ifndef MSDOS /* IF NOT DEFINED */
