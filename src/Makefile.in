@@ -64,6 +64,9 @@ depend::
 #
 
 install::
+	if test ! -d $(bindir); then \
+		mkdir -p $(bindir); \
+	fi
 	$(INSTALL) -s -m 555 lv $(bindir)
 	if test -f $(bindir)/lgrep; then \
 		/bin/rm -f $(bindir)/lgrep; \
