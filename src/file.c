@@ -132,6 +132,8 @@ public offset_t IobufFtell( iobuf_t *iobuf )
 # else
   ptr = ftell( iobuf->iop );
 # endif
+  if (iobuf->ungetc != EOF)
+    ptr--;
   if( iobuf->cur == iobuf->last ){
     return ptr;
   }
@@ -141,6 +143,7 @@ public offset_t IobufFtell( iobuf_t *iobuf )
 public int IobufFseek( iobuf_t *iobuf, offset_t off, int mode )
 {
   iobuf->cur = iobuf->last = 0;  /* flush all iobuf */
+  iobuf->ungetc = EOF;
 # if defined(WIN32NATIVE)
   return _fseeki64( iobuf->iop, off, mode );
 # elif defined(HAVE_FSEEKO)
