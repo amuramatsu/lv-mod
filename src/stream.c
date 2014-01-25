@@ -48,6 +48,34 @@
 private byte *gz_filter = "zcat";
 private byte *bz2_filter = "bzcat";
 
+#ifdef WIN32NATIVE
+/* Win32's tmpfile is very stupid!, so replace my own one */
+#define tmpfile()	win32_tmpfile()
+
+private char *tmpf = NULL;
+private FILE *tmp_file = NULL;
+private void win32_tmpfile_cleanup(void)
+{
+  if (tmp_file != NULL)
+    fclose(tmp_file);
+  if (tmpf != NULL)
+    unlink(tmpf);
+}
+
+private FILE *win32_tmpfile()
+{
+  if (tmp_file != NULL)
+    return NULL;
+  tmpf = tempnam( NULL, "lv" );
+  if(tmpf == NULL || (tmp_file = fopen( tmpf, "wb+" )) == NULL) {
+    tmpf = NULL;
+    return NULL;
+  }
+  atexit(win32_tmpfile_cleanup);
+  return tmp_file;
+}
+#endif /* WIN32NATIVE */
+
 private stream_t *StreamAlloc()
 {
   stream_t *st;
@@ -172,13 +200,13 @@ public stream_t *StreamReconnectStdin()
   fstat( 0, &sbuf );
   if( S_IFREG == ( sbuf.st_mode & S_IFMT ) ){
     /* regular */
-    if( NULL == (st->fp = fdopen( dup( 0 ), "rb" )) )
+    if( NULL == (st->fp = fdopen( dup( 0 ), "r" )) )
       StdinDuplicationFailed();
   } else {
     /* socket */
     if( NULL == (st->fp = (FILE *)tmpfile()) )
       perror( "temporary file" ), exit( -1 );
-    if( NULL == (st->sp = fdopen( dup( 0 ), "rb" )) )
+    if( NULL == (st->sp = fdopen( dup( 0 ), "r" )) )
       StdinDuplicationFailed();
   }
   close( 0 );

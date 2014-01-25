@@ -277,7 +277,7 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
   if( fseek( f->fp, ptr, SEEK_SET ) )
     perror( "FileStretch()" ), exit( -1 );
 
-#if !(defined(MSDOS) || defined(WIN32NATIVE)) /* IF NOT DEFINED */
+#ifndef MSDOS /* IF NOT DEFINED */
   if( NULL != f->sp ){
     while( EOF != (ch = getc( f->sp )) ){
       putc( ch, f->fp );
@@ -343,12 +343,14 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
 	  return FALSE;
       }
     }
+#ifndef WIN32NATIVE /* NOT DEFINED */
     if( -1 != f->pid && feof( f->sp ) ){
       int status;
       wait( &status );
     }
+#endif /* WIN32NATIVE */
   } else {
-#endif /* !(MSDOS || WIN32NATIVE) */
+#endif /* MSDOS */
     while( EOF != (ch = getc( f->fp )) ){
       count++;
 #ifdef USE_UTF16
@@ -428,9 +430,9 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
 	  return FALSE;
       }
     }
-#if !(defined(MSDOS) || defined(WIN32NATIVE)) /* IF NOT DEFINED */
+#ifndef MSDOS /* IF NOT DEFINED */
   }
-#endif /* !(MSDOS || WIN32NATIVE) */
+#endif
 
   if( FALSE == kb_interrupted ){
     if( 0 < line || 0 < count ){
