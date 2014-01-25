@@ -107,7 +107,7 @@ OOPPTTIIOONNSS
               s: shift-jis
               b: big5
               h: HZ
-              w: utf-16
+              wa: utf-16
               wb,wl: utf-16be,le
               r: raw mode
 
