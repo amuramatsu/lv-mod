@@ -47,6 +47,7 @@
 
 private byte *gz_filter = "zcat";
 private byte *bz2_filter = "bzcat";
+private byte *xz_filter = "xzcat";
 
 #ifdef WIN32NATIVE
 /* Win32's tmpfile is very stupid!, so replace my own one */
@@ -107,6 +108,8 @@ public stream_t *StreamOpen( byte *file )
       filter = gz_filter;
     else if( !strcmp( "bz2", exts ) || !strcmp( "BZ2", exts ) )
       filter = bz2_filter;
+    else if( !strcmp( "xz", exts ) || !strcmp( "XZ", exts ) )
+      filter = xz_filter;
   }
   if( NULL != filter ){
     /*
