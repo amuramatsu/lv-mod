@@ -29,14 +29,14 @@
 public void Banner()
 {
   fprintf( stderr,
-#ifdef WIN32N_VERSION
+#ifdef PATCH_VERSION
 	  "# lv " VERSION " [" WIN32N_VERSION "]\n"
 #else
 	  "# lv " VERSION "\n"
 #endif
 	  "# All rights reserved. Copyright (C) 1996-2004 by NARITA Tomio\n"
-#ifdef WIN32N_VERSION
-	  "#   Win32 native code: Copyright (C) 2011 by MURAMATSU Atsushi\n"
+#ifdef PATCH_VERSION
+	  "#                                      patched by MURAMATSU Atsushi\n"
 #endif
 	  "# ABSOLUTELY NO WARRANTY; for details type `lv -h'\n"
 	  );
