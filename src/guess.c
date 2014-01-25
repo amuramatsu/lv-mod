@@ -390,7 +390,26 @@ public void AdjustPatternCharset( byte inputCodingSystem,
   if( FALSE == adjust_charset )
     return;
 
-#ifndef MSDOS /* IF NOT DEFINED */
+#ifdef USE_UTF16
+  if( IsUtfEncoding(inputCodingSystem) ||
+      IsUtf16Encoding( inputCodingSystem ) ||
+      IsUtfEncoding( keyboardCodingSystem ) ||
+      IsUtf16Encoding( keyboardCodingSystem ) ){
+    if( (IsUtfEncoding( inputCodingSystem ) ||
+	 IsUtf16Encoding( inputCodingSystem )) &&
+       !(IsUtfEncoding( keyboardCodingSystem ) ||
+	 IsUtf16Encoding( keyboardCodingSystem )))
+      ConvertToUNI( istr );
+    else if( !(IsUtfEncoding( inputCodingSystem ) ||
+	       IsUtfEncoding( inputCodingSystem ) ) &&
+	      (IsUtfEncoding( keyboardCodingSystem ) ||
+	       IsUtfEncoding( keyboardCodingSystem ) ) ) {
+      if( AUTOSELECT == inputCodingSystem )
+	inputCodingSystem = defaultCodingSystem;
+      ConvertFromUNI( istr, inputCodingSystem );
+    }
+  } else
+#elif !defined(MSDOS) /* IF NOT DEFINED */
   if( IsUtfEncoding( inputCodingSystem ) || IsUtfEncoding( keyboardCodingSystem ) ){
     if( IsUtfEncoding( inputCodingSystem ) && !IsUtfEncoding( keyboardCodingSystem ) )
       ConvertToUNI( istr );
