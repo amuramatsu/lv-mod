@@ -125,7 +125,9 @@ private INLINE IobufUngetc( int ch, iobuf_t *iobuf )
 public offset_t IobufFtell( iobuf_t *iobuf )
 {
   offset_t ptr;
-# ifdef HAVE_FSEEKO
+# if defined(WIN32NATIVE)
+  ptr = _ftelli64( iobuf->iop );
+# elif defined(HAVE_FSEEKO)
   ptr = ftello( iobuf->iop );
 # else
   ptr = ftell( iobuf->iop );
@@ -139,7 +141,9 @@ public offset_t IobufFtell( iobuf_t *iobuf )
 public int IobufFseek( iobuf_t *iobuf, offset_t off, int mode )
 {
   iobuf->cur = iobuf->last = 0;  /* flush all iobuf */
-# ifdef HAVE_FSEEKO
+# if defined(WIN32NATIVE)
+  return _fseeki64( iobuf->iop, off, mode );
+# elif defined(HAVE_FSEEKO)
   return fseeko( iobuf->iop, off, mode );
 # else
   return fseek( iobuf->iop, off, mode );

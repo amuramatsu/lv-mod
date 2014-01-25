@@ -81,7 +81,9 @@ typedef struct {
 #endif
 } iobuf_t;
 
-#ifdef HAVE_FSEEKO
+#if defined(WIN32NATIVE)
+typedef __int64	offset_t;
+#elif defined(HAVE_FSEEKO)
 typedef off_t	offset_t;
 #else
 typedef long	offset_t;
@@ -160,7 +162,10 @@ public byte *FileName( file_t *f );
 public void FileInit();
 
 #ifndef USE_INTERNAL_IOBUF
-# ifdef HAVE_FSEEKO
+# if defined(WIN32NATIVE)
+#  define IobufFtell( a )	_ftelli64( (a)->iop )
+#  define IobufFseek( a, b, c )	_fseeki64( (a)->iop, b, c)
+# elif defined(HAVE_FSEEKO)
 #  define IobufFtell( a )	ftello( (a)->iop )
 #  define IobufFseek( a, b, c )	fseeko( (a)->iop, b, c)
 # else
