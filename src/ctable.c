@@ -113,11 +113,30 @@ public c_table_t cTable[ C_TABLE_SIZE ] = {
   { ISO_2022_KR, FALSE, "ISO-2022-KR",
       {{0, 1}, {ASCII, KSC5601, ASCII, ASCII}, 0, 0 } },
 
+#ifdef USE_UTF16
+  /*
+   * Raw encoding
+   */
+  { RAW, FALSE, "RAW",
+      {{0, 1}, {ASCII, ASCII, ASCII, ASCII}, 0, 0 } },
+
+  /*
+   * UTF-16
+   */
+  { UTF_16, FALSE, "UTF-16",
+      {{0, 1}, {ASCII, ASCII, ASCII, ASCII}, 0, 0 } },
+  { UTF_16LE, FALSE, "UTF-16LE",
+      {{0, 1}, {ASCII, ASCII, ASCII, ASCII}, 0, 0 } },
+  { UTF_16BE, FALSE, "UTF-16BE",
+      {{0, 1}, {ASCII, ASCII, ASCII, ASCII}, 0, 0 } }
+
+#else /* USE_UTF16 */
   /*
    * Raw encoding
    */
   { RAW, FALSE, "RAW",
       {{0, 1}, {ASCII, ASCII, ASCII, ASCII}, 0, 0 } }
+#endif /* USE_UTF16 */
 };
 
 public void CtableInit()

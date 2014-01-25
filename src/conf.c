@@ -23,6 +23,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef WIN32NATIVE
+#include <windows.h>
+#endif
 
 #include <import.h>
 #include <itable.h>
@@ -37,6 +40,7 @@
 #include <command.h>
 #include <conv.h>
 #include <uty.h>
+#include <stream.h>
 #include <version.h>
 #ifdef HAVE_SETLOCALE
 #include <locale.h>
@@ -64,6 +68,15 @@
 
 #define LV_CONF 	"_lv"
 #endif /* MSDOS */
+
+#ifdef WIN32NATIVE
+#define DEFAULT_OUTPUT_CODING_SYSTEM	SHIFT_JIS
+#define DEFAULT_KEYBOARD_CODING_SYSTEM	SHIFT_JIS
+#define DEFAULT_PATHNAME_CODING_SYSTEM	SHIFT_JIS
+#define DEFAULT_DEFAULT_CODING_SYSTEM	EUC_JAPAN
+
+#define LV_CONF 	".lv"
+#endif /* WIN32NATIVE */
 
 #define BUF_SIZE 	128
 
@@ -119,6 +132,7 @@ private void ConfInitArgs( conf_t *conf )
   carefully_divide	= TRUE;		/* display.h */
   adjust_charset	= TRUE;		/* guess.h */
   no_scroll		= TRUE;		/* console.h */
+  stream_filter		= TRUE;		/* stream.h */
 
   allow_unify		= FALSE;	/* itable_t.h */
   allow_ansi_esc	= FALSE;	/* console.h */
@@ -127,6 +141,7 @@ private void ConfInitArgs( conf_t *conf )
   kana_conv		= FALSE;	/* kana.h */
   smooth_paging		= FALSE;	/* display.h */
   hz_detection		= FALSE;	/* decode.h */
+  less_compatible	= FALSE;	/* command.h */
 
   ConsoleResetAnsiSequence();
 }
@@ -197,6 +212,17 @@ private void SetCodingSystem( byte *s, byte *codingSystem, byte *location )
     }
     break;
 #endif /* MSDOS */
+#ifdef USE_UTF16
+  case 'w':
+    switch( *( s + 2 ) ){
+    case 'a': *codingSystem = UTF_16;		break;
+    case 'l': *codingSystem = UTF_16LE;		break;
+    case 'b': *codingSystem = UTF_16BE;		break;
+    default:
+      *codingSystem = UTF_16;
+    }
+    break;
+#endif /* USE_UTF16 */
   case 'r': *codingSystem = RAW;		break;
   default:
     UnknownOption( s, location );
@@ -291,8 +317,10 @@ private void ConfArg( conf_t *conf, byte **argv, byte *location )
       case 'n': line_number = TRUE; s++; continue;
       case 'q': no_scroll = FALSE; s++; continue;
       case 's': smooth_paging = TRUE; s++; continue;
+      case 't': less_compatible = TRUE; s++; continue;
       case 'u': allow_unify = TRUE; s++; continue;
       case 'v': grep_inverted = TRUE; s++; continue;
+      case 'w': stream_filter = TRUE; s++; continue;
       case 'z': hz_detection = TRUE; s++; continue;
       case '+': ConfInitArgs( conf ); s++; continue;
       case 'h': conf->file = lvHelpFile; break;
@@ -313,38 +341,54 @@ private void ConfArg( conf_t *conf, byte **argv, byte *location )
     }
   } else if( TRUE == conf->options && '+' == **argv ){
     s = *argv + 1;
-    while( *s ){
-      switch( *s ){
-#ifndef MSDOS /* IF NOT DEFINED */
-      case 'm': unimap_iso8859 = FALSE; s++; continue;
-#endif /* MSDOS */
-      case 'a': adjust_charset = FALSE; s++; continue;
-      case 'c': allow_ansi_esc = FALSE; s++; continue;
-      case 'd': casefold_search = FALSE; s++; continue;
-      case 'i': casefold_search = FALSE; s++; continue;
-      case 'f': regexp_search = TRUE; s++; continue;
-      case 'g': grep_mode = FALSE; s++; continue;
-      case 'k': kana_conv = FALSE; s++; continue;
-      case 'l': carefully_divide = TRUE; s++; continue;
-      case 'n': line_number = FALSE; s++; continue;
-      case 'q': no_scroll = TRUE; s++; continue;
-      case 's': smooth_paging = FALSE; s++; continue;
-      case 'u': allow_unify = FALSE; s++; continue;
-      case 'v': grep_inverted = FALSE; s++; continue;
-      case 'z': hz_detection = FALSE; s++; continue;
-      case SP:
-      case HT:
-	break;
-      default:
-	UnknownOption( s, location );
+    if( *s == '/' || IsNumber( *s ) ){
+      size_t initcmd_len = strlen( s );
+      initcmd_mode = TRUE;
+      initcmd_curp = 0;
+      initcmd_str = Malloc( initcmd_len + 2 );
+      strcpy( initcmd_str, s );
+      if( *s == '/' ){
+	initcmd_str[ initcmd_len ] = CR;
+      } else if( IsNumber( *s ) && IsNumber( s[ initcmd_len - 1 ] ) ){
+	initcmd_str[ initcmd_len ] = 'g';
       }
-      do {
-	s++;
-	if( '-' == *s || '+' == *s ){
-	  s++;
+      initcmd_str[ initcmd_len + 1 ] = NUL;
+    } else {
+      while( *s ){
+	switch( *s ){
+#ifndef MSDOS /* IF NOT DEFINED */
+	case 'm': unimap_iso8859 = FALSE; s++; continue;
+#endif /* MSDOS */
+	case 'a': adjust_charset = FALSE; s++; continue;
+	case 'c': allow_ansi_esc = FALSE; s++; continue;
+	case 'd': casefold_search = FALSE; s++; continue;
+	case 'i': casefold_search = FALSE; s++; continue;
+	case 'f': regexp_search = TRUE; s++; continue;
+	case 'g': grep_mode = FALSE; s++; continue;
+	case 'k': kana_conv = FALSE; s++; continue;
+	case 'l': carefully_divide = TRUE; s++; continue;
+	case 'n': line_number = FALSE; s++; continue;
+	case 'q': no_scroll = TRUE; s++; continue;
+	case 's': smooth_paging = FALSE; s++; continue;
+	case 't': less_compatible = FALSE; s++; continue;
+	case 'u': allow_unify = FALSE; s++; continue;
+	case 'v': grep_inverted = FALSE; s++; continue;
+	case 'w': stream_filter = FALSE; s++; continue;
+	case 'z': hz_detection = FALSE; s++; continue;
+	case SP:
+	case HT:
 	  break;
+	default:
+	  UnknownOption( s, location );
 	}
-      } while( *s );
+	do {
+	  s++;
+	  if( '-' == *s || '+' == *s ){
+	    s++;
+	    break;
+	  }
+	} while( *s );
+      }
     }
   } else {
     if( TRUE == grep_mode && NULL == conf->pattern )
@@ -390,8 +434,15 @@ public void Conf( conf_t *conf, byte **argv )
     strcat( buf, "/" LV_CONF );
     ConfFile( conf, buf );
   }
+#ifdef WIN32NATIVE
+  else if( NULL != (ptr = getenv( "USERPROFILE" )) ){
+    strcpy( buf, ptr );
+    strcat( buf, "/" LV_CONF );
+    ConfFile( conf, buf );
+  }
+#endif /* WIN32NATIVE */
 
-#ifdef MSDOS
+#if defined(MSDOS) || defined(WIN32NATIVE)
   ConfFile( conf, LV_CONF );
 #endif
 
@@ -410,12 +461,20 @@ public void ConfInit( byte **argv )
 #define helpFile	(*lvHelpFile)
   lvHelpFile[ 1 ] = NULL;
 
-#ifdef MSDOS
+#if defined(MSDOS) || defined(WIN32NATIVE)
   {
     int i;
+    const char *p;
 
-    helpFile = Malloc( strlen( argv[ 0 ] ) + strlen( LV_HELP ) + 1 );
-    strcpy( helpFile, argv[ 0 ] );
+#ifdef WIN32NATIVE
+    char exe[MAX_PATH];
+    GetModuleFileNameA( NULL, exe, sizeof(exe) );
+    p = exe;
+#else
+    p = argv[ 0 ];
+#endif
+    helpFile = Malloc( strlen( p ) + strlen( LV_HELP ) + 1 );
+    strcpy( helpFile, p );
     for( i = strlen( helpFile ) - 1 ; i >= 0 ; i-- ){
       if( '/' == helpFile[ i ] || '\\' == helpFile[ i ] ){
 	i++;
@@ -423,13 +482,13 @@ public void ConfInit( byte **argv )
       }
     }
     if( i < 0 ) i = 0;
-    helpFile[ i ] = NULL;
+    helpFile[ i ] = '\0';
     strcat( helpFile, LV_HELP );
   }
 #else
   helpFile = Malloc( strlen( LV_HELP_PATH "/" LV_HELP ) + 1 );
   strcpy( helpFile, LV_HELP_PATH "/" LV_HELP );
-#endif /* MSDOS */
+#endif /* MSDOS || WIN32NATIVE */
 }
 
 public byte *ConfFilename( conf_t *conf )

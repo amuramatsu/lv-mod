@@ -32,6 +32,10 @@
 #include <dos.h>
 #endif /* MSDOS */
 
+#ifdef WIN32NATIVE
+#include <windows.h>
+#endif /* WIN32NATIVE */
+
 #include <import.h>
 #include <itable.h>
 #include <begin.h>
@@ -210,12 +214,12 @@ public boolean_t IsAtty( int fd )
      */
     return FALSE;
   }
-#else
+#else /* ! MSDOS */
   if( isatty( fd ) )
     return TRUE;
   else
     return FALSE;
-#endif /* MSDOS */
+#endif
 }
 
 public byte *Exts( byte *s )

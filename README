@@ -1,4 +1,8 @@
 ------------------------------------------------------------------------------
+  This is a unofficial fork of lv
+     by MURAMATSU Atsushi <amura@tomato.sakura.ne.jp>.
+
+------------------------------------------------------------------------------
 
   Documentation of lv is provided on the web. See the following URL:
 
@@ -6,7 +10,7 @@
 
 ------------------------------------------------------------------------------
 
-   All rights reserved. Copyright (C) 1996-2004 by NARITA Tomio.
+   All rights reserved. Copyright (C) 1996-2005 by NARITA Tomio.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

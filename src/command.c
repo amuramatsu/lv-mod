@@ -29,6 +29,10 @@
 #include <dos.h>
 #endif /* MSDOS */
 
+#ifdef WIN32NATIVE
+#include <windows.h>
+#endif
+
 #ifdef UNIX
 #include <unistd.h>
 #include <signal.h>
@@ -66,13 +70,29 @@
 #define COM_FILE_PREV		'p'
 #define COM_FILE_NEXT		'n'
 
-#define IsNumber( c )		( (c) >= '0' && (c) <= '9' )
-
 #ifdef MSDOS
 #define HISTORY_SIZE		2
 #else
 #define HISTORY_SIZE		4
 #endif /* MSDOS */
+
+#ifdef WIN32NATIVE
+private void usleep(long usec) {
+  LARGE_INTEGER lFrequency;
+  LARGE_INTEGER lEndTime;
+  LARGE_INTEGER lCurTime;
+
+  QueryPerformanceFrequency (&lFrequency);
+  if (lFrequency.QuadPart) {
+    QueryPerformanceCounter (&lEndTime);
+    lEndTime.QuadPart += (LONGLONG) usec * lFrequency.QuadPart / 1000000;
+    do {
+      QueryPerformanceCounter (&lCurTime);
+      Sleep(0);
+     } while (lCurTime.QuadPart < lEndTime.QuadPart);
+  }
+}
+#endif
 
 private file_t *f;		/* current file */
 
@@ -145,6 +165,22 @@ private void CommandCopyToHistory( str_t *str, int length )
     historyIndex = 0;
 }
 
+private int CommandGetChar()
+{
+  int ch;
+
+  if( FALSE == initcmd_mode ){
+    return ConsoleGetChar();
+  }
+
+  ch = initcmd_str[ initcmd_curp++ ];
+  if( initcmd_str[ initcmd_curp ] == NUL ){
+    initcmd_mode = FALSE;
+    free( initcmd_str );
+  }
+  return ch;
+}
+
 private i_str_t *CommandGetLine( file_t *f, byte prompt )
 {
   int ch, ptr, iptr, width, pre_width, index;
@@ -164,13 +200,14 @@ private i_str_t *CommandGetLine( file_t *f, byte prompt )
   pre_width = -1;
   for( ; ; ){
     ConsoleFlush();
-    ch = ConsoleGetChar();
+    ch = CommandGetChar();
     switch( ch ){
     case EOF:
     case BEL: /* C-g */
       if( NULL != istr )
 	IstrFree( istr );
       return NULL;
+    case LF: /* C-j */
     case CR: /* C-m */
       if( NULL == istr )
 	return NULL;
@@ -344,7 +381,7 @@ private boolean_t CommandGetNumber( unsigned int *number, int *newCom )
     ConsolePrints( buf );
 
     ConsoleFlush();
-    ch = ConsoleGetChar();
+    ch = CommandGetChar();
     if( EOF == ch )
       return FALSE;
     else if( BS == ch || DEL == ch ){
@@ -457,9 +494,9 @@ private void CommandQuit( unsigned int arg )
 
 private void CommandShellEscape( unsigned int arg )
 {
-#ifdef MSDOS
+#if defined(MSDOS) || defined(WIN32NATIVE)
   byte *shell;
-#endif /* MSDOS */
+#endif /* MSDOS || WIN32NATIVE */
 
   ConsoleShellEscape();
 
@@ -467,7 +504,7 @@ private void CommandShellEscape( unsigned int arg )
   FileRefresh( f );
   IstrFreeAll();
 
-#ifdef MSDOS
+#if defined(MSDOS) || defined(WIN32NATIVE)
   if( shell = getenv( "SHELL" ) )
     spawnlp( 0, shell, shell, NULL );
   else if( shell = getenv( "COMSPEC" ) )
@@ -497,7 +534,7 @@ private void CommandReload( unsigned int arg )
   byte defaultCodingSystem;
   stream_t st;
 
-  if( NULL != f->sp ){
+  if( NULL != f->sp.iop ){
     label = "cannot reload non-regular files";
     return;
   }
@@ -506,9 +543,9 @@ private void CommandReload( unsigned int arg )
     label = "cannot reload current file";
     return;
   } else {
-    fclose( f->fp );
+    fclose( f->fp.iop );
     st.fp = fp;
-    st.sp = f->sp;
+    st.sp = f->sp.iop;
     st.pid = f->pid;
   }
 
@@ -554,9 +591,9 @@ private int CommandLaunchEditor( byte *editor, byte *filename, int line )
   byte *ptr, *nptr, *argv[ ARG_SIZE ];
   byte com[ COM_SIZE ];
   byte num[ COM_SIZE ];
-#ifndef MSDOS /* NOT DEFINED */
+#if !(defined(MSDOS) || defined(WIN32NATIVE)) /* NOT DEFINED */
   int pid, status;
-#endif /* MSDOS */
+#endif /* !(MSDOS  || WIN32NATIVE) */
 
   if( strlen( editor ) + strlen( filename ) + 2 > COM_SIZE )
     return 1;
@@ -595,7 +632,7 @@ private int CommandLaunchEditor( byte *editor, byte *filename, int line )
   }
 #endif /* NOT */
 
-#ifdef MSDOS
+#if defined(MSDOS) || defined(WIN32NATIVE)
   return spawnvp( 0, argv[ 0 ], argv );
 #else
   if( 0 == (pid = fork()) ){
@@ -610,7 +647,7 @@ private int CommandLaunchEditor( byte *editor, byte *filename, int line )
     } while (rv == -1 && errno == EINTR);
     return status;
   }
-#endif /* MSDOS */
+#endif /* MSDOS || WIN32NATIVE */
 }
 
 private void CommandEdit( unsigned int arg )
@@ -618,7 +655,7 @@ private void CommandEdit( unsigned int arg )
   byte *fileName;
   int lineNumber;
 
-  if( NULL != f->sp ){
+  if( NULL != f->sp.iop ){
     label = "cannot edit non-regular files";
     return;
   }
@@ -694,11 +731,11 @@ private void CommandBottomOfFile( unsigned int arg )
 
 private void CommandPoll( unsigned int arg )
 {
-  long pos;
+  offset_t pos;
 
   kb_interrupted = FALSE;
 
-  if( NULL != f->sp ){
+  if( NULL != f->sp.iop ){
     label = "cannot poll non-regular files";
     return;
   }
@@ -718,8 +755,8 @@ private void CommandPoll( unsigned int arg )
     ConsoleSetAttribute( 0 );
     ConsoleFlush();
 
-    (void)fseek( f->fp, 0, SEEK_END );
-    pos = ftell( f->fp );
+    (void)IobufFseek( &f->fp, 0, SEEK_END );
+    pos = IobufFtell( &f->fp );
 
     ConsoleEnableInterrupt();
 
@@ -728,8 +765,8 @@ private void CommandPoll( unsigned int arg )
       if( kb_interrupted )
 	break;
 
-      (void)fseek( f->fp, 0, SEEK_END );
-      if( ftell( f->fp ) > pos ){
+      (void)IobufFseek( &f->fp, 0, SEEK_END );
+      if( IobufFtell( &f->fp ) > pos ){
 	// it grew
 	break;
       }
@@ -805,23 +842,29 @@ private void CommandNextPage( unsigned int arg )
 private void CommandRepeatForward( unsigned int arg )
 {
   if( NULL != f->find.pattern )
-    message = CommandFindContinue( f, FORWARD );
+    message = CommandFindContinue( f,
+      ( less_compatible && f->find.before_direction == BACKWARD )
+	? BACKWARD : FORWARD );
 }
 
 private void CommandRepeatBackward( unsigned int arg )
 {
   if( NULL != f->find.pattern )
-    message = CommandFindContinue( f, BACKWARD );
+    message = CommandFindContinue( f,
+      ( less_compatible && f->find.before_direction == BACKWARD )
+	? FORWARD : BACKWARD );
 }
 
 private void CommandFindForward( unsigned int arg )
 {
   message = CommandFindSetPattern( f, FORWARD );
+  f->find.before_direction = FORWARD;
 }
 
 private void CommandFindBackward( unsigned int arg )
 {
   message = CommandFindSetPattern( f, BACKWARD );
+  f->find.before_direction = BACKWARD;
 }
 
 private void CommandFileStatus( unsigned int arg )
@@ -846,7 +889,11 @@ private void CommandFileStatus( unsigned int arg )
 
 private void CommandVersion( unsigned int arg )
 {
+#ifdef PATCH_VERSION
+  label = VERSION " " PATCH_VERSION;
+#else
   label = VERSION;
+#endif
 }
 
 private void CommandRedisplay( unsigned int arg )
@@ -902,7 +949,7 @@ private void CommandCursor( unsigned int arg )
   flagLeft = flagRight = flagUp = flagDown = flagPpage = flagNpage = TRUE;
   step = 1;
   for( ; ; ){
-    ch = ConsoleGetChar();
+    ch = CommandGetChar();
     if( NULL == cur_left || ch != cur_left[ step ] )
       flagLeft = FALSE;
     if( NULL == cur_right || ch != cur_right[ step ] )
@@ -954,7 +1001,7 @@ private void CommandColon( unsigned int arg )
   stream_t *st;
   file_list_t *next_target;
 
-  ch = ConsoleGetChar();
+  ch = CommandGetChar();
 
   if( COM_FILE_PREV == ch || COM_FILE_NEXT == ch ){
     if( 0 < arg ){
@@ -1135,6 +1182,10 @@ public void Command( file_t *file, byte **optional )
       DisplayFull( f );
     }
 
+#ifdef WIN32NATIVE
+    ConsoleGetWindowSize();
+#endif
+
     if( TRUE == window_changed ){
       window_changed = FALSE;
       CommandRefresh( 0 );
@@ -1179,7 +1230,7 @@ public void Command( file_t *file, byte **optional )
     }
 
     ConsoleFlush();
-    com = ConsoleGetChar();
+    com = CommandGetChar();
     if( com < 0x00 || com > 0x7f )
       continue;
 

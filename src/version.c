@@ -29,8 +29,15 @@
 public void Banner()
 {
   fprintf( stderr,
+#ifdef PATCH_VERSION
+	  "# lv " VERSION " [" PATCH_VERSION "]\n"
+#else
 	  "# lv " VERSION "\n"
-	  "# All rights reserved. Copyright (C) 1996-2004 by NARITA Tomio\n"
+#endif
+	  "# All rights reserved. Copyright (C) 1996-2005 by NARITA Tomio\n"
+#ifdef PATCH_VERSION
+	  "#                                      patched by MURAMATSU Atsushi\n"
+#endif
 	  "# ABSOLUTELY NO WARRANTY; for details type `lv -h'\n"
 	  );
 }

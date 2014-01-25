@@ -36,6 +36,10 @@
 #include <dos.h>
 #endif /* MSDOS */
 
+#ifdef WIN32NATIVE
+#include <io.h>
+#endif /* WIN32NATIVE */
+
 #include <import.h>
 #include <uty.h>
 #include <begin.h>
@@ -43,6 +47,56 @@
 
 private byte *gz_filter = "zcat";
 private byte *bz2_filter = "bzcat";
+private byte *lzma_filter = "lzcat";
+private byte *xz_filter = "xzcat";
+
+#ifdef WIN32NATIVE
+/* Win32's tmpfile is very stupid!, so replace my own one */
+#define tmpfile()	w32_tmpfile()
+
+typedef struct _w32_tmpfile_data {
+  struct _w32_tmpfile_data *next;
+  FILE *file;
+  char name[1];
+} w32_tmpfile_data;
+private w32_tmpfile_data *w32_tmpfile_ptr = NULL;
+
+private void w32_tmpfile_cleanup(void)
+{
+  w32_tmpfile_data *ptr = w32_tmpfile_ptr;
+  while (ptr != NULL) {
+    fclose(ptr->file);
+    unlink(ptr->name);
+    ptr = ptr->next;
+  }
+}
+
+private FILE *w32_tmpfile()
+{
+  char *tmpf;
+  FILE *f;
+  w32_tmpfile_data *data, **pptr;
+  
+  tmpf = tempnam( NULL, "lv" );
+  if(tmpf == NULL || (f = fopen( tmpf, "wb+" )) == NULL)
+    return NULL;
+  if((data = malloc(sizeof(w32_tmpfile_data) + strlen(tmpf))) == NULL) {
+    fclose(f);
+    unlink(tmpf);
+    return NULL;
+  }
+  if (w32_tmpfile_ptr == NULL)
+    atexit(w32_tmpfile_cleanup);
+  data->next = NULL;
+  data->file = f;
+  strcpy(data->name, tmpf);
+  pptr = &w32_tmpfile_ptr;
+  while (*pptr != NULL)
+    pptr = &((*pptr)->next);
+  *pptr = data;
+  return f;
+}
+#endif /* WIN32NATIVE */
 
 private stream_t *StreamAlloc()
 {
@@ -69,21 +123,25 @@ public stream_t *StreamOpen( byte *file )
 
   st = StreamAlloc();
 
-  if( NULL != (exts = Exts( file )) ){
+  if( stream_filter && NULL != (exts = Exts( file )) ){
     if( !strcmp( "gz", exts ) || !strcmp( "GZ", exts )
 	|| !strcmp( "z", exts ) || !strcmp( "Z", exts ) )
       filter = gz_filter;
     else if( !strcmp( "bz2", exts ) || !strcmp( "BZ2", exts ) )
       filter = bz2_filter;
+    else if( !strcmp( "lzma", exts ) || !strcmp( "LZMA", exts ) )
+      filter = lzma_filter;
+    else if( !strcmp( "xz", exts ) || !strcmp( "XZ", exts ) )
+      filter = xz_filter;
   }
   if( NULL != filter ){
     /*
-     * zcat or bzcat
+     * zcat, bzcat, lzcat or xzcat
      */
     if( NULL == (st->fp = (FILE *)tmpfile()) )
       perror( "temporary file" ), exit( -1 );
 
-#ifdef MSDOS
+#if defined(MSDOS) || defined(WIN32NATIVE)
     { int sout;
 
       sout = dup( 1 );
@@ -97,7 +155,7 @@ public stream_t *StreamOpen( byte *file )
 
       return st;
     }
-#endif /* MSDOS */
+#endif /* MSDOS || WIN32NATIVE */
 
 #ifdef UNIX
     { int fds[ 2 ], pid;
@@ -152,7 +210,7 @@ private void StdinDuplicationFailed()
 public stream_t *StreamReconnectStdin()
 {
   stream_t *st;
-#ifdef UNIX
+#if defined(UNIX) || defined(WIN32NATIVE)
   struct stat sbuf;
 #endif
 
@@ -164,7 +222,7 @@ public stream_t *StreamReconnectStdin()
   close( 0 );
   dup( 1 );
 #endif /* MSDOS */
-#ifdef UNIX
+#if defined(UNIX) || defined(WIN32NATIVE)
   fstat( 0, &sbuf );
   if( S_IFREG == ( sbuf.st_mode & S_IFMT ) ){
     /* regular */
@@ -178,9 +236,11 @@ public stream_t *StreamReconnectStdin()
       StdinDuplicationFailed();
   }
   close( 0 );
+#ifdef UNIX
   if( IsAtty( 1 ) && 0 != open( "/dev/tty", O_RDONLY ) )
     perror( "/dev/tty" ), exit( -1 );
-#endif /* UNIX */
+#endif
+#endif /* UNIX || WIN32NATIVE */
 
   return st;
 }

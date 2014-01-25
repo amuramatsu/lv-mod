@@ -44,6 +44,9 @@
 #include <guess.h>
 #include <begin.h>
 #include <file.h>
+#ifdef USE_UTF16
+#include <utf.h>
+#endif
 
 extern byte *FindResetPattern( file_t *f, i_str_t *istr );
 
@@ -68,6 +71,99 @@ public void FileFreeLine( file_t *f )
   }
 }
 
+#if defined(__GNUC__)
+#define INLINE inline
+#elif defined(_MSC_VER)
+#define INLINE _inline
+#else
+#define INLINE
+#endif
+
+#ifdef USE_INTERNAL_IOBUF
+private INLINE int IobufGetc( iobuf_t *iobuf );
+private INLINE int IobufUngetc( int ch, iobuf_t *iobuf );
+private INLINE int IobufFeof( iobuf_t *iobuf );
+#else
+# define IobufGetc( a )		getc( (a)->iop )
+# define IobufUngetc( a, b )	ungetc( a, (b)->iop )
+# define IobufFeof( a )		feof( (a)->iop )
+#endif
+#define IobufPutc( a, b )	putc( a, (b)->iop )
+
+#ifdef USE_INTERNAL_IOBUF
+private INLINE int IobufGetc( iobuf_t *iobuf )
+{
+  if( iobuf->ungetc != EOF ){
+    int ch = iobuf->ungetc;
+    iobuf->ungetc = EOF;
+    return ch;
+  }
+  if( iobuf->cur >= iobuf->last ){
+    /* no stream buffer, reset and fill now */
+    iobuf->cur = 0;
+    iobuf->last = fread( iobuf->buf, sizeof( byte ), IOBUF_DEFAULT_SIZE, iobuf->iop );
+    if( iobuf->last <= 0 ){
+      return EOF;
+    }
+  }
+  return iobuf->buf[ iobuf->cur++ ];
+}
+
+private INLINE IobufUngetc( int ch, iobuf_t *iobuf )
+{
+  if( iobuf->cur == 0 ){
+    /* XXX: it should be tied to fp sanely */
+    if( iobuf->ungetc != EOF )
+      return EOF;
+    iobuf->ungetc = ch;
+    return ch;
+  }
+  iobuf->buf[ --iobuf->cur ] = (byte)ch;
+  return ch;
+}
+
+public offset_t IobufFtell( iobuf_t *iobuf )
+{
+  offset_t ptr;
+# if defined(WIN32NATIVE)
+  ptr = _ftelli64( iobuf->iop );
+# elif defined(HAVE_FSEEKO)
+  ptr = ftello( iobuf->iop );
+# else
+  ptr = ftell( iobuf->iop );
+# endif
+  if (iobuf->ungetc != EOF)
+    ptr--;
+  if( iobuf->cur == iobuf->last ){
+    return ptr;
+  }
+  return ptr - ( iobuf->last - iobuf->cur );
+}
+
+public int IobufFseek( iobuf_t *iobuf, offset_t off, int mode )
+{
+  iobuf->cur = iobuf->last = 0;  /* flush all iobuf */
+  iobuf->ungetc = EOF;
+# if defined(WIN32NATIVE)
+  return _fseeki64( iobuf->iop, off, mode );
+# elif defined(HAVE_FSEEKO)
+  return fseeko( iobuf->iop, off, mode );
+# else
+  return fseek( iobuf->iop, off, mode );
+# endif
+}
+
+private INLINE IobufFeof( iobuf_t *iobuf )
+{
+  if( iobuf->cur == iobuf->last ){
+    return feof( iobuf->iop );
+  } else {
+    return 1;
+  }
+}
+#endif
+
+
 /*
  * 現在のファイルポインタから 1行を読み込んでバッファに格納する.
  * コード系の自動判別の対象となる場合, 自動判別を行なう.
@@ -83,6 +179,9 @@ public byte *FileLoadLine( file_t *f, int *length, boolean_t *simple )
   boolean_t flagEightBit = FALSE, flagHz = FALSE;
   int idx, len, count, ch;
   char *str;
+#ifdef USE_UTF16
+  int cr_flag = 0;
+#endif
 
   if( long_str ){
     free( long_str );
@@ -93,25 +192,86 @@ public byte *FileLoadLine( file_t *f, int *length, boolean_t *simple )
   count = 0;
   idx = 0;
 
-  while( EOF != (ch = getc( f->fp )) ){
+#ifdef USE_UTF16
+  ch = IobufGetc( &f->fp );
+  if (AUTOSELECT == f->inputCodingSystem || UTF_16 == f->inputCodingSystem) {
+    /* BOM check */
+    if (ch != EOF) {
+      int ch2 = IobufGetc( &f->fp );
+      if (ch == 0xfe && ch2 == 0xff)
+        f->inputCodingSystem = UTF_16BE;
+      else if (ch == 0xff && ch2 == 0xfe)
+        f->inputCodingSystem = UTF_16LE;
+      if (ch2 != EOF)
+	IobufUngetc( ch2, &f->fp );
+    }
+  } 
+  if (IsUtf16Encoding(f->inputCodingSystem))
+    flagSimple = FALSE;
+
+  for (; ch != EOF; ch = IobufGetc( &f->fp )) {
+#else /* !USE_UTF16 */
+  while( EOF != (ch = IobufGetc( &f->fp )) ){
+#endif /* USE_UTF16 */
     len++;
     load_array[ count ][ idx++ ] = (byte)ch;
+#ifdef USE_UTF16
+    if (IsUtf16Encoding(f->inputCodingSystem)) {
+      if ((idx % 2) == 0) {
+	int ch2 = load_array[ count ][idx-2] & 0xff;
+	if (f->inputCodingSystem != UTF_16BE && ch == 0 && ch2 == CR) {
+	  load_array[count][idx-1] = 0;
+	  load_array[count][idx-2] = LF;
+	  cr_flag = UTF_16LE;
+	} else if (f->inputCodingSystem != UTF_16LE && ch == CR && ch2 == 0) {
+	  load_array[count][idx-1] = LF;
+	  load_array[count][idx-2] = 0;
+	  cr_flag = UTF_16BE;
+	} else if (f->inputCodingSystem != UTF_16BE && ch == 0 && ch2 == LF) {
+	  if (cr_flag == UTF_16LE) { /* MS-DOS style eol */
+	    len -= 2;
+	    if (idx < 2 && count > 0)
+	      free(load_array[count--]);
+	  }
+	  break;
+	} else if (f->inputCodingSystem != UTF_16LE && ch == LF && ch2 == 0) {
+	  if (cr_flag == UTF_16LE) { /* MS-DOS style eol */
+	    len -= 2;
+	    if (idx < 2 && count > 0)
+	      free(load_array[count--]);
+	  }
+	  break;
+	} else if (cr_flag) { /* Mac style eol */
+	  len -= 2;
+	  if (idx < 2 && count > 0)
+	    free(load_array[count--]);
+	  if (IobufFseek( &f->fp, -2, SEEK_CUR ))
+	    perror("FileLoadLine"), exit(-1);
+	  break;
+	} else
+	  cr_flag = 0;
+      }
+    } else {
+#endif /* USE_UTF16 */
     if( LF == ch ){
       /* UNIX style */
       break;
     } else if( CR == ch ){
-      if( LF == (ch = getc( f->fp )) ){
+      if( LF == (ch = IobufGetc( &f->fp )) ){
 	/* MSDOS style */
       } else if( EOF == ch ){
 	/* need to avoid EOF due to pre-load of that */
 	ch = LF;
       } else {
 	/* Mac style */
-	ungetc( ch, f->fp );
+	IobufUngetc( ch, &f->fp );
       }
       load_array[ count ][ idx - 1 ] = LF;
       break;
     }
+#ifdef USE_UTF16
+    }
+#endif /* USE_UTF16 */
     if( LOAD_SIZE == idx ){
       count++;
       if( LOAD_COUNT == count )
@@ -197,7 +357,7 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
 {
   int ch, count;
   unsigned int segment, line;
-  long ptr;
+  offset_t ptr;
 
   if( TRUE == f->done )
     return FALSE;
@@ -207,23 +367,50 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
   ptr = f->lastPtr;
   segment = f->lastSegment;
 
-  if( fseek( f->fp, ptr, SEEK_SET ) )
+  if( IobufFseek( &f->fp, ptr, SEEK_SET ) )
     perror( "FileStretch()" ), exit( -1 );
 
 #ifndef MSDOS /* IF NOT DEFINED */
-  if( NULL != f->sp ){
-    while( EOF != (ch = getc( f->sp )) ){
-      putc( ch, f->fp );
+  if( NULL != f->sp.iop ){
+    while( EOF != (ch = IobufGetc( &f->sp )) ){
+      IobufPutc( ch, &f->fp );
       count++;
+#ifdef USE_UTF16
+      if (AUTOSELECT == f->inputCodingSystem || UTF_16 == f->inputCodingSystem) {
+	/* BOM check */
+	int ch2;
+	if (EOF != (ch2 = IobufGetc( &f->sp ))) {
+	  if (ch == 0xfe && ch2 == 0xff)
+	    f->inputCodingSystem = UTF_16BE;
+	  else if (ch == 0xff && ch2 == 0xfe)
+	    f->inputCodingSystem = UTF_16LE;
+	  IobufUngetc( ch2, &f->sp );
+	}
+      }
+      if (IsUtf16Encoding(f->inputCodingSystem)) {
+	int ch2;
+	if (EOF == (ch2 = IobufGetc( &f->sp )))
+	  break;
+	IobufPutc( ch2, &f->fp );
+	count++;
+	if ((f->inputCodingSystem != UTF_16BE && ch == LF && ch2 == 0) ||
+	    (f->inputCodingSystem != UTF_16LE && ch == 0 && ch2 == LF) ||
+	    count >= (LOAD_SIZE*LOAD_COUNT))
+	  goto label1;
+      } else
+#endif /* USE_UTF16 */
       if( LF == ch || CR == ch || count == (LOAD_SIZE * LOAD_COUNT) ){
 	if( CR == ch ){
-	  if( LF != (ch = getc( f->sp )) )
-	    ungetc( ch, f->sp );
+	  if( LF != (ch = IobufGetc( &f->sp )) )
+	    IobufUngetc( ch, &f->sp );
 	  else
-	    putc( LF, f->fp );
+	    IobufPutc( LF, &f->fp );
 	}
+#ifdef USE_UTF16
+  label1:
+#endif
 	count = 0;
-	if( 0 > (ptr = ftell( f->fp )) )
+	if( 0 > (ptr = IobufFtell( &f->fp )) )
 	  perror( "FileStretch()" ), exit( -1 );
 	if( ++line == LV_PAGE_SIZE ){
 	  f->totalLines += line;
@@ -232,7 +419,7 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
 	    if( FRAME_SIZE == ++f->lastFrame
 	       ||
 	       NULL == (f->slot[ f->lastFrame ]
-			= (long *)malloc( sizeof( long ) * SLOT_SIZE ))
+			= (offset_t *)malloc( sizeof( offset_t ) * SLOT_SIZE ))
 	       ){
 	      f->done = TRUE;
 	      f->truncated = TRUE;
@@ -249,21 +436,65 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
 	  return FALSE;
       }
     }
-    if( -1 != f->pid && feof( f->sp ) ){
+#ifndef WIN32NATIVE /* NOT DEFINED */
+    if( -1 != f->pid && IobufFeof( &f->sp ) ){
       int status;
       wait( &status );
     }
+#endif /* WIN32NATIVE */
   } else {
 #endif /* MSDOS */
-    while( EOF != (ch = getc( f->fp )) ){
+    while( EOF != (ch = IobufGetc( &f->fp )) ){
       count++;
+#ifdef USE_UTF16
+      if (AUTOSELECT == f->inputCodingSystem || UTF_16 == f->inputCodingSystem) {
+	/* BOM check */
+	int ch2;
+	if (EOF != (ch2 = IobufGetc( &f->fp ))) {
+	  if (ch == 0xfe && ch2 == 0xff)
+	    f->inputCodingSystem = UTF_16BE;
+	  else if (ch == 0xff && ch2 == 0xfe)
+	    f->inputCodingSystem = UTF_16LE;
+	  IobufUngetc( ch2, &f->fp );
+	}
+      }
+      if (IsUtf16Encoding(f->inputCodingSystem)) {
+	int ch2;
+	if (EOF == (ch2 = IobufGetc( &f->fp )))
+	  break;
+	count++;
+	if (f->inputCodingSystem != UTF_16BE && ch == CR && ch2 == 0) {
+	  ch = IobufGetc( &f->fp );
+	  ch2 = IobufGetc( &f->fp );
+	  if (ch != LF || ch2 != 0) { /* Mac style eol */
+	    if (IobufFseek( &f->fp, -2, SEEK_CUR ))
+	      perror("FileStretch()"), exit(-1);
+	  }
+	  goto label2;
+	} else if (f->inputCodingSystem != UTF_16LE && ch == 0 && ch2 == CR) {
+	  ch = IobufGetc( &f->fp );
+	  ch2 = IobufGetc( &f->fp );
+	  if (ch != 0 || ch2 != LF) { /* Mac style eol */
+	    if (IobufFseek( &f->fp, -2, SEEK_CUR ))
+	      perror("FileStretch()"), exit( -1 );
+	  }
+	  goto label2;
+	} else if ((f->inputCodingSystem != UTF_16BE && ch == LF && ch2 == 0) ||
+		   (f->inputCodingSystem != UTF_16LE && ch == 0 && ch2 == LF) ||
+	    count >= (LOAD_SIZE*LOAD_COUNT))
+	  goto label2;
+      } else
+#endif /* USE_UTF16 */
       if( LF == ch || CR == ch || count == (LOAD_SIZE * LOAD_COUNT) ){
 	if( CR == ch ){
-	  if( LF != (ch = getc( f->fp )) )
-	    ungetc( ch, f->fp );
+	  if( LF != (ch = IobufGetc( &f->fp )) )
+	    IobufUngetc( ch, &f->fp );
 	}
+#ifdef USE_UTF16
+  label2:
+#endif /* USE_UTF16 */
 	count = 0;
-	if( 0 > (ptr = ftell( f->fp )) )
+	if( 0 > (ptr = IobufFtell( &f->fp )) )
 	  perror( "FileStretch()" ), exit( -1 );
 	if( ++line == LV_PAGE_SIZE ){
 	  f->totalLines += line;
@@ -271,7 +502,7 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
 	  if( 0 == Slot( ++segment ) ){
 	    if( FRAME_SIZE == ++f->lastFrame
 	       || NULL == (f->slot[ f->lastFrame ]
-			   = (long *)malloc( sizeof( long ) * SLOT_SIZE ))
+			   = (offset_t *)malloc( sizeof( offset_t ) * SLOT_SIZE ))
 	       ){
 	      f->done = TRUE;
 	      f->truncated = TRUE;
@@ -294,14 +525,14 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
     }
 #ifndef MSDOS /* IF NOT DEFINED */
   }
-#endif /* MSDOS */
+#endif
 
   if( FALSE == kb_interrupted ){
     if( 0 < line || 0 < count ){
       segment++;
       f->totalLines += line;
       f->lastSegment = segment;
-      if( 0 > (f->lastPtr = ftell( f->fp )) )
+      if( 0 > (f->lastPtr = IobufFtell( &f->fp )) )
 	perror( "FileStretch()" ), exit( -1 );
     }
     f->done = TRUE;
@@ -325,7 +556,7 @@ public boolean_t FileSeek( file_t *f, unsigned int segment )
     if( FALSE == FileStretch( f, segment ) )
       return FALSE;
 
-  if( fseek( f->fp, f->slot[ Frame( segment ) ][ Slot( segment ) ], SEEK_SET ) )
+  if( IobufFseek( &f->fp, f->slot[ Frame( segment ) ][ Slot( segment ) ], SEEK_SET ) )
     perror( "FileSeek()" ), exit( -1 );
 
   return TRUE;
@@ -392,12 +623,20 @@ public file_t *FileAttach( byte *fileName, stream_t *st,
   f->fileNameI18N	= NULL;
   f->fileNameLength	= 0;
 
-  f->fp			= st->fp;
-  f->sp			= st->sp;
+  f->fp.iop		= st->fp;
+  f->sp.iop		= st->sp;
+#ifdef USE_INTERNAL_IOBUF
+  f->fp.cur		= 0;
+  f->fp.last		= 0;
+  f->fp.ungetc		= EOF;
+  f->sp.cur		= 0;
+  f->sp.last		= 0;
+  f->sp.ungetc		= EOF;
+#endif
   f->pid		= st->pid;
   f->lastSegment	= 0;
   f->totalLines		= 0L;
-  f->lastPtr		= 0L;
+  f->lastPtr		= 0;
 
   f->lastFrame		= 0;
 
@@ -432,8 +671,8 @@ public void FilePreload( file_t *f )
   for( i = 0 ; i < FRAME_SIZE ; i++ )
     f->slot[ i ] = NULL;
 
-  f->slot[ 0 ]		= (long *)Malloc( sizeof( long ) * SLOT_SIZE );
-  f->slot[ 0 ][ 0 ]	= 0L;
+  f->slot[ 0 ]		= (offset_t *)Malloc( sizeof( offset_t ) * SLOT_SIZE );
+  f->slot[ 0 ][ 0 ]	= 0;
 
   FileCacheInit( f );
   FileStretch( f, 0 );

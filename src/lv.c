@@ -32,9 +32,9 @@
 #include <sys/wait.h>
 #endif /* UNIX */
 
-#ifdef MSDOS
+#if defined(MSDOS) || defined(WIN32NATIVE)
 #include <dos.h>
-#endif /* MSDOS */
+#endif /* MSDOS || WIN32NATIVE */
 
 #include <import.h>
 #include <itable.h>
@@ -148,12 +148,12 @@ private boolean_t LvGrep( conf_t *conf, boolean_t showFileName )
 
   FileFree( f );
 
-#ifndef MSDOS /* if NOT defined */
+#if !(defined(MSDOS) || defined(WIN32NATIVE)) /* if NOT defined */
   if( 0 != conf->st->pid ){
     int status;
     wait( &status );
   }
-#endif /* MSDOS */
+#endif /* !(MSDOS || WIN32NATIVE) */
 
   StreamClose( conf->st );
   conf->st = NULL;

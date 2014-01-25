@@ -9,6 +9,7 @@
 #define __FILE_H__
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <itable.h>
 #include <ctable.h>
@@ -26,6 +27,10 @@
 #define SLOT_SIZE	16384U		/* file location pointers */
 #define FRAME_SIZE	4096U
 #endif /* MSDOS */
+
+#ifdef USE_INTERNAL_IOBUF
+# define IOBUF_DEFAULT_SIZE	256
+#endif
 
 typedef struct {
   int		ptr;
@@ -63,14 +68,33 @@ typedef struct {
   i_str_t	*pattern;
   boolean_t	first;
   boolean_t	displayed;
+  boolean_t	before_direction;
 } find_t;
+
+typedef struct {
+  FILE		*iop;
+#ifdef USE_INTERNAL_IOBUF
+  int		ungetc;
+  byte		buf[ IOBUF_DEFAULT_SIZE ];
+  size_t	cur;
+  size_t	last;
+#endif
+} iobuf_t;
+
+#if defined(WIN32NATIVE)
+typedef __int64	offset_t;
+#elif defined(HAVE_FSEEKO)
+typedef off_t	offset_t;
+#else
+typedef long	offset_t;
+#endif
 
 typedef struct {
   byte		*fileName;
   i_str_t	*fileNameI18N;
   int		fileNameLength;
-  FILE		*fp;
-  FILE		*sp;
+  iobuf_t	fp;
+  iobuf_t	sp;
   int		pid;
   byte		inputCodingSystem;
   byte		outputCodingSystem;
@@ -83,7 +107,7 @@ typedef struct {
   unsigned int	lastSegment;
   unsigned int	lastFrame;
   unsigned long	totalLines;
-  long		lastPtr;
+  offset_t	lastPtr;
   boolean_t	done;
   boolean_t	eof;
   boolean_t	top;
@@ -94,7 +118,7 @@ typedef struct {
   screen_t	screen;
   boolean_t	used[ BLOCK_SIZE ];
   page_t	page[ BLOCK_SIZE ];
-  long		*slot[ FRAME_SIZE ];
+  offset_t	*slot[ FRAME_SIZE ];
 } file_t;
 
 #ifdef MSDOS
@@ -136,5 +160,21 @@ public byte *FileStatus( file_t *f );
 public byte *FileName( file_t *f );
 
 public void FileInit();
+
+#ifndef USE_INTERNAL_IOBUF
+# if defined(WIN32NATIVE)
+#  define IobufFtell( a )	_ftelli64( (a)->iop )
+#  define IobufFseek( a, b, c )	_fseeki64( (a)->iop, b, c)
+# elif defined(HAVE_FSEEKO)
+#  define IobufFtell( a )	ftello( (a)->iop )
+#  define IobufFseek( a, b, c )	fseeko( (a)->iop, b, c)
+# else
+#  define IobufFtell( a )	ftell( (a)->iop )
+#  define IobufFseek( a, b, c )	fseek( (a)->iop, b, c)
+# endif
+#else
+public offset_t IobufFtell( iobuf_t *iobuf );
+public int IobufFseek( iobuf_t *iobuf, offset_t off, int mode );
+#endif
 
 #endif /* __FILE_H__ */

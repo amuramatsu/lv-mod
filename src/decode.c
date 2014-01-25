@@ -76,7 +76,14 @@ private decode_table_t decodeTable[ C_TABLE_SIZE ] = {
   DecodeISO2022,		/* ISO_2022_CN */
   DecodeISO2022,		/* ISO_2022_JP */
   DecodeISO2022,		/* ISO_2022_KR */
+#ifdef USE_UTF16
+  DecodeRaw,			/* RAW */
+  DecodeUTF16,			/* UTF16 (LE/BE autodetect) */
+  DecodeUTF16,			/* UTF16LE */
+  DecodeUTF16,			/* UTF16BE */
+#else
   DecodeRaw			/* RAW */
+#endif
 };
 
 public void DecodeAddSpace( byte attr )
@@ -234,6 +241,24 @@ public i_str_t *Decode( i_str_t *istr,
   STR   = str;
   SHIGH = *shigh;
 
+#ifdef USE_UTF16
+  if (IsUtf16Encoding(codingSystem)) {
+    if ((SHIGH % 2) == 1)
+      SHIGH--;
+    if ( 0 == str[ SHIGH - 2 ] && LF == str[ SHIGH - 1 ] ) {
+      if (codingSystem == UTF_16 || codingSystem == UTF_16BE) {
+	linefeeded = TRUE;
+	SHIGH -= 2;
+      }
+    }
+    else if ( LF == str[ SHIGH - 2 ] && 0 == str[ SHIGH - 1 ] ) {
+      if (codingSystem == UTF_16 || codingSystem == UTF_16LE) {
+	linefeeded = TRUE;
+	SHIGH -= 2;
+      }
+    }
+  } else
+#endif
   if( LF == str[ SHIGH - 1 ] ){
     linefeeded = TRUE;
     SHIGH--;
