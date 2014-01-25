@@ -44,6 +44,9 @@
 #include <guess.h>
 #include <begin.h>
 #include <file.h>
+#ifdef USE_UTF16
+#include <utf.h>
+#endif
 
 extern byte *FindResetPattern( file_t *f, i_str_t *istr );
 
@@ -93,9 +96,48 @@ public byte *FileLoadLine( file_t *f, int *length, boolean_t *simple )
   count = 0;
   idx = 0;
 
+#ifdef USE_UTF16
+  ch = getc(f->fp);
+  if (AUTOSELECT == f->inputCodingSystem) {
+    if (ch != EOF) {
+      int ch2 = getc(f->fp);
+      if (ch == 0xfe && ch2 == 0xff) {
+        f->inputCodingSystem = UTF_16LE;
+      } else if (ch == 0xff && ch2 == 0xfe) {
+        f->inputCodingSystem = UTF_16BE;
+      }
+      if (ch2 != EOF)
+	ungetc(ch2, f->fp);
+    }
+  } 
+  if (IsUtf16Encoding(f->inputCodingSystem))
+    flagSimple = FALSE;
+
+  for (; ch != EOF; ch = getc( f->fp )) {
+#else /* !USE_UTF16 */
   while( EOF != (ch = getc( f->fp )) ){
+#endif /* USE_UTF16 */
     len++;
     load_array[ count ][ idx++ ] = (byte)ch;
+#ifdef USE_UTF16
+    if (IsUtf16Encoding(f->inputCodingSystem)) {
+      if ((idx % 2) == 0 && idx >= 2) {
+	int ch2 = load_array[ count ][idx-2] & 0xff;
+	if (ch == 0 && ch2 == LF) {
+	  /* UNIX style or MS-DOS style by LE */
+	  if (f->inputCodingSystem == UTF_16 ||
+	      f->inputCodingSystem == UTF_16LE)
+	    break;
+	}
+	else if (ch == LF && ch2 == 0) {
+	  /* UNIX style or MS-DOS style by BE */
+	  if (f->inputCodingSystem == UTF_16 ||
+	      f->inputCodingSystem == UTF_16BE)
+	    break;
+	}
+      }
+    } else
+#endif /* USE_UTF16 */
     if( LF == ch ){
       /* UNIX style */
       break;

@@ -372,10 +372,13 @@ public void DecodeUTF16( state_t *state, byte codingSystem )
     if (ch1 == 0 && ch2 <= SP ){
       if( SP == ch2 )
 	DecodeAddSpace( state->attr );
+#if 0
       else if( ESC == ch2 ){
 	if( FALSE == DecodeEscape( state ) )
 	  break;
-      } else if( HT == ch2 )
+      }
+#endif
+      else if( HT == ch2 )
 	DecodeAddTab( state->attr );
       else if( BS == ch2 )
 	DecodeAddBs();
@@ -422,7 +425,8 @@ public void EncodeUTF16( i_str_t *istr, int head, int tail,
 	  EncodeAddChar( attr, ic >> 8 );
 	}
       }
-    } else if( FALSE == EncodeAddPseudo16( attr, ic, cset, binary, UTF_16BE == codingSystem ) ){
+    } else if( FALSE == EncodeAddPseudo16( attr, ic, cset, binary,
+					  UTF_16BE == codingSystem ) ){
       break;
     }
   }

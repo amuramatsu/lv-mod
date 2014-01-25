@@ -22,6 +22,8 @@ public void EncodeUTF8( i_str_t *istr, int head, int tail,
 		       byte codingSystem, boolean_t binary );
 
 #ifdef USE_UTF16
+#define IsUtf16Encoding( cset )	( UTF_16 == (cset) || UTF_16LE == (cset) || UTF_16BE == (cset))
+
 public void DecodeUTF16( state_t *state, byte codingSystem );
 
 public void EncodeUTF16( i_str_t *istr, int head, int tail,
