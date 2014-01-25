@@ -239,7 +239,7 @@ public void ConsoleGetWindowSize()
   HEIGHT = 24;
   if (GetConsoleScreenBufferInfo(hStdout, &info)) {
     WIDTH = info.dwSize.X;
-    HEIGHT = info.dwSize.Y;
+    HEIGHT = info.srWindow.Bottom - info.srWindow.Top + 1;
   }
 #endif /* WIN32NATIVE */
 
@@ -294,6 +294,7 @@ public void ConsoleTermInit()
   hStdout = GetStdHandle(STD_OUTPUT_HANDLE);  /* 標準出力ハンドルの取得 */
 
   ConsoleGetWindowSize();
+  no_scroll = FALSE;
 #endif
 
 #if (defined( MSDOS ) || defined( WIN32 )) && !defined(WIN32NATIVE)
@@ -800,7 +801,19 @@ public void ConsoleGoAhead()
 
 public void ConsoleScrollUp()
 {
-#ifndef WIN32NATIVE
+#ifdef WIN32NATIVE
+  CONSOLE_SCREEN_BUFFER_INFO csbi;
+  SMALL_RECT                 region;
+  COORD                      dest;
+  CHAR_INFO                  fill;
+  GetConsoleScreenBufferInfo(hStdout, &csbi);
+  fill.Char.AsciiChar = ' ';
+  fill.Attributes = csbi.wAttributes;
+  region = csbi.srWindow;
+  dest = csbi.dwCursorPosition;
+  region.Top = dest.Y + 1;
+  ScrollConsoleScreenBuffer(hStdout, &region, NULL, dest, &fill);
+#else
   if( delete_line )
     tputs( delete_line, 1, putfunc );
 #endif
@@ -808,7 +821,19 @@ public void ConsoleScrollUp()
 
 public void ConsoleScrollDown()
 {
-#ifndef WIN32NATIVE
+#ifdef WIN32NATIVE
+  CONSOLE_SCREEN_BUFFER_INFO csbi;
+  SMALL_RECT                 region;
+  COORD                      dest;
+  CHAR_INFO                  fill;
+  GetConsoleScreenBufferInfo(hStdout, &csbi);
+  fill.Char.AsciiChar = ' ';
+  fill.Attributes = csbi.wAttributes;
+  region = csbi.srWindow;
+  dest = csbi.dwCursorPosition;
+  dest.Y += 1;
+  ScrollConsoleScreenBuffer(hStdout, &region, NULL, dest, &fill);
+#else
   if( insert_line )
     tputs( insert_line, 1, putfunc );
 #endif
