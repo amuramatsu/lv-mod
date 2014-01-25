@@ -121,7 +121,7 @@ public byte *FileLoadLine( file_t *f, int *length, boolean_t *simple )
     load_array[ count ][ idx++ ] = (byte)ch;
 #ifdef USE_UTF16
     if (IsUtf16Encoding(f->inputCodingSystem)) {
-      if ((idx % 2) == 0 && idx >= 2) {
+      if ((idx % 2) == 0) {
 	int ch2 = load_array[ count ][idx-2] & 0xff;
 	if (ch == 0 && ch2 == LF) {
 	  /* UNIX style or MS-DOS style by LE */

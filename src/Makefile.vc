@@ -5,7 +5,7 @@
 
 # VisualC++ 2008 Express
 CC = cl
-CFLAGS = /O2 /I. /DWIN32NATIVE /DRETSIGTYPE=void /DHAVE_SETLOCALE
+CFLAGS = /O2 /I. /DWIN32NATIVE /DRETSIGTYPE=void /DHAVE_SETLOCALE /DUSE_UTF16
 
 ########################################################################
 # You don't have to change the following.

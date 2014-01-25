@@ -20,7 +20,7 @@ distdir = lv$(VERSION)
 
 PURIFY=	@PURIFY@
 CC=	@CC@
-CFLAGS=	@CFLAGS@ -DLV_HELP_PATH=\"$(lvlibdir)\" -I$(srcdir) @DEFS@
+CFLAGS=	@CFLAGS@ -DLV_HELP_PATH=\"$(lvlibdir)\" -I$(srcdir) -DUSE_UTF16 @DEFS@
 LIBS=	@LIBS@
 LDFLAGS=@LDFLAGS@
 INSTALL=@INSTALL@
