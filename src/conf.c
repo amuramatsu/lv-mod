@@ -65,6 +65,15 @@
 #define LV_CONF 	"_lv"
 #endif /* MSDOS */
 
+#ifdef WIN32
+#define DEFAULT_OUTPUT_CODING_SYSTEM	SHIFT_JIS
+#define DEFAULT_KEYBOARD_CODING_SYSTEM	SHIFT_JIS
+#define DEFAULT_PATHNAME_CODING_SYSTEM	SHIFT_JIS
+#define DEFAULT_DEFAULT_CODING_SYSTEM	EUC_JAPAN
+
+#define LV_CONF 	".lv"
+#endif /* WIN32 */
+
 #define BUF_SIZE 	128
 
 #define LV_HELP		"lv.hlp"
@@ -391,7 +400,7 @@ public void Conf( conf_t *conf, byte **argv )
     ConfFile( conf, buf );
   }
 
-#ifdef MSDOS
+#if defined(MSDOS) || defined(WIN32)
   ConfFile( conf, LV_CONF );
 #endif
 
@@ -410,7 +419,7 @@ public void ConfInit( byte **argv )
 #define helpFile	(*lvHelpFile)
   lvHelpFile[ 1 ] = NULL;
 
-#ifdef MSDOS
+#if defined(MSDOS) || defined(WIN32)
   {
     int i;
 
@@ -429,7 +438,7 @@ public void ConfInit( byte **argv )
 #else
   helpFile = Malloc( strlen( LV_HELP_PATH "/" LV_HELP ) + 1 );
   strcpy( helpFile, LV_HELP_PATH "/" LV_HELP );
-#endif /* MSDOS */
+#endif /* MSDOS || WIN32 */
 }
 
 public byte *ConfFilename( conf_t *conf )

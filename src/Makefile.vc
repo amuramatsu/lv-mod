@@ -1,0 +1,35 @@
+########################################################################
+# Makefile for lv executable
+#   target: all, clean
+########################################################################
+
+# MSDOS
+CC = cl
+CFLAGS = -O2 -I. -DWIN32 -DRETSIGTYPE=void 
+LIB = -m
+
+########################################################################
+# You don't have to change the following.
+########################################################################
+
+all: lv.exe
+
+OBJS = itable.obj ctable.obj \
+	uty.obj istr.obj stream.obj file.obj guess.obj \
+	decode.obj encode.obj escape.obj iso2022.obj \
+	iso8859.obj iso2cn.obj iso2jp.obj iso2kr.obj kana.obj \
+	eucjapan.obj shiftjis.obj big5.obj hz.obj raw.obj \
+	fetch.obj screen.obj command.obj display.obj \
+	find.obj re.obj nfa.obj dfa.obj \
+	conv.obj version.obj conf.obj lv.obj console.obj
+UNIOBJS= utf.obj unimap.obj unirev.obj
+
+lv.exe: $(OBJS) $(UNIOBJS)
+	$(CC) @${ -o $@ $(OBJS) $(UNIOBJS) $(LIB) }
+
+#
+# cleaning
+#
+
+clean:
+	rm -f lv.exe *.obj

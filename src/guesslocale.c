@@ -50,6 +50,10 @@ public byte LocaleCodingSystem( char *language )
 #ifdef MSDOS
   strcpy( language, "ja_JP" );
   return SHIFT_JIS;
+#elif defined(WIN32)
+#warning "XXX PLEASE IMPLEMENT LocaleCodingSystem()."
+  strcpy( language, "ja_JP" );
+  return SHIFT_JIS;
 #elif !defined(HAVE_LANGINFO_CODESET)
 #warning "XXX There isn't nl_langinfo(CODESET) functionality."
 #warning "XXX Using fixed value ``ja_JP'' and EUC_JAPAN..."
