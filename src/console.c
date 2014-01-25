@@ -162,7 +162,7 @@ SaveConsoleBuffer(CONSOLE_BUF_SAVED *save)
  
   GetConsoleScreenBufferInfo(hStdout, &save->csbi);
   size = save->csbi.dwSize.X * save->csbi.dwSize.Y;
-  save->buffer = (PCHAR_INFO)malloc(size * sizeof(CHAR_INFO));
+  save->buffer = (PCHAR_INFO)Malloc(size * sizeof(CHAR_INFO));
   pos.X = 0;
   region.Left = 0;
   region.Right = save->csbi.dwSize.X - 1;
