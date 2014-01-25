@@ -214,16 +214,7 @@ public boolean_t IsAtty( int fd )
      */
     return FALSE;
   }
-#elif defined(WIN32NATIVE)
-  DWORD mode;
-  CONSOLE_CURSOR_INFO info;
-  if (GetConsoleMode((HANDLE)fd, &mode))
-    return TRUE;
-  else if (GetConsoleCursorInfo((HANDLE)fd, &info))
-    return TRUE;
-  else
-    return FALSE;
-#else /* ! (MSDOS || WIN32NATIVE) */
+#else /* ! MSDOS */
   if( isatty( fd ) )
     return TRUE;
   else
