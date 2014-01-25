@@ -86,6 +86,9 @@ public byte *FileLoadLine( file_t *f, int *length, boolean_t *simple )
   boolean_t flagEightBit = FALSE, flagHz = FALSE;
   int idx, len, count, ch;
   char *str;
+#ifdef USE_UTF16
+  int cr_flag = 0;
+#endif
 
   if( long_str ){
     free( long_str );
@@ -123,10 +126,37 @@ public byte *FileLoadLine( file_t *f, int *length, boolean_t *simple )
     if (IsUtf16Encoding(f->inputCodingSystem)) {
       if ((idx % 2) == 0) {
 	int ch2 = load_array[ count ][idx-2] & 0xff;
-	if ((f->inputCodingSystem != UTF_16BE && ch == 0 && ch2 == LF) ||
-	    (f->inputCodingSystem != UTF_16LE && ch == LF && ch2 == 0))
-	  /* UNIX style or MS-DOS style */
+	if (f->inputCodingSystem != UTF_16BE && ch == 0 && ch2 == CR) {
+	  load_array[count][idx-1] = 0;
+	  load_array[count][idx-2] = LF;
+	  cr_flag = UTF_16LE;
+	} else if (f->inputCodingSystem != UTF_16LE && ch == CR && ch2 == 0) {
+	  load_array[count][idx-1] = LF;
+	  load_array[count][idx-2] = 0;
+	  cr_flag = UTF_16BE;
+	} else if (f->inputCodingSystem != UTF_16BE && ch == 0 && ch2 == LF) {
+	  if (cr_flag == UTF_16LE) { /* MS-DOS style eol */
+	    len -= 2;
+	    if (idx < 2 && count > 0)
+	      free(load_array[count--]);
+	  }
 	  break;
+	} else if (f->inputCodingSystem != UTF_16LE && ch == LF && ch2 == 0) {
+	  if (cr_flag == UTF_16LE) { /* MS-DOS style eol */
+	    len -= 2;
+	    if (idx < 2 && count > 0)
+	      free(load_array[count--]);
+	  }
+	  break;
+	} else if (cr_flag) { /* Mac style eol */
+	  len -= 2;
+	  if (idx < 2 && count > 0)
+	    free(load_array[count--]);
+	  if (fseek(f->fp, -2L, SEEK_CUR))
+	    perror("FileLoadLine"), exit(-1);
+	  break;
+	} else
+	  cr_flag = 0;
       }
     } else {
 #endif /* USE_UTF16 */
@@ -338,8 +368,24 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
 	if (EOF == (ch2 = getc(f->fp)))
 	  break;
 	count++;
-	if ((f->inputCodingSystem != UTF_16BE && ch == LF && ch2 == 0) ||
-	    (f->inputCodingSystem != UTF_16LE && ch == 0 && ch2 == LF) ||
+	if (f->inputCodingSystem != UTF_16BE && ch == CR && ch2 == 0) {
+	  ch = getc(f->fp);
+	  ch2 = getc(f->fp);
+	  if (ch != LF || ch2 != 0) { /* Mac style eol */
+	    if (fseek(f->fp, -2L, SEEK_CUR))
+	      perror("FileStretch()"), exit(-1);
+	  }
+	  goto label2;
+	} else if (f->inputCodingSystem != UTF_16LE && ch == 0 && ch2 == CR) {
+	  ch = getc(f->fp);
+	  ch2 = getc(f->fp);
+	  if (ch != 0 || ch2 != LF) { /* Mac style eol */
+	    if (fseek(f->fp, -2L, SEEK_CUR ))
+	      perror("FileStretch()"), exit( -1 );
+	  }
+	  goto label2;
+	} else if ((f->inputCodingSystem != UTF_16BE && ch == LF && ch2 == 0) ||
+		   (f->inputCodingSystem != UTF_16LE && ch == 0 && ch2 == LF) ||
 	    count >= (LOAD_SIZE*LOAD_COUNT))
 	  goto label2;
       } else
