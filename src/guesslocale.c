@@ -51,7 +51,7 @@ public byte LocaleCodingSystem( char *language )
   strcpy( language, "ja_JP" );
   return SHIFT_JIS;
 #elif defined(WIN32NATIVE)
-#warning "XXX PLEASE IMPLEMENT LocaleCodingSystem()."
+//#warning "XXX PLEASE IMPLEMENT LocaleCodingSystem()."
   strcpy( language, "ja_JP" );
   return SHIFT_JIS;
 #elif !defined(HAVE_LANGINFO_CODESET)

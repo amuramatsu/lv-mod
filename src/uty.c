@@ -217,9 +217,9 @@ public boolean_t IsAtty( int fd )
 #elif defined(WIN32NATIVE)
   DWORD mode;
   CONSOLE_CURSOR_INFO info;
-  if (GetConsoleMode(fd, &mode))
+  if (GetConsoleMode((HANDLE)fd, &mode))
     return TRUE;
-  else if (GetConsoleCursorInfo(fd, &info))
+  else if (GetConsoleCursorInfo((HANDLE)fd, &info))
     return TRUE;
   else
     return FALSE;

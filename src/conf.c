@@ -432,7 +432,7 @@ public void ConfInit( byte **argv )
       }
     }
     if( i < 0 ) i = 0;
-    helpFile[ i ] = NULL;
+    helpFile[ i ] = '\0';
     strcat( helpFile, LV_HELP );
   }
 #else

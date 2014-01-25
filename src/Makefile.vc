@@ -5,8 +5,7 @@
 
 # MSDOS
 CC = cl
-CFLAGS = -O2 -I. -DWIN32NATIVE -DRETSIGTYPE=void 
-LIB = -m
+CFLAGS = /O2 /I. /DWIN32NATIVE /DRETSIGTYPE=void /DHAVE_SETLOCALE
 
 ########################################################################
 # You don't have to change the following.
@@ -21,11 +20,12 @@ OBJS = itable.obj ctable.obj \
 	eucjapan.obj shiftjis.obj big5.obj hz.obj raw.obj \
 	fetch.obj screen.obj command.obj display.obj \
 	find.obj re.obj nfa.obj dfa.obj \
-	conv.obj version.obj conf.obj lv.obj console.obj
+	conv.obj version.obj conf.obj lv.obj console.obj guesslocale.obj \
+	getch_msvc.obj
 UNIOBJS= utf.obj unimap.obj unirev.obj
 
 lv.exe: $(OBJS) $(UNIOBJS)
-	$(CC) @${ -o $@ $(OBJS) $(UNIOBJS) $(LIB) }
+	$(CC) /Fe$@ /MT $(OBJS) $(UNIOBJS)
 
 #
 # cleaning

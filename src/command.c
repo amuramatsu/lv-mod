@@ -25,9 +25,13 @@
 #include <string.h>
 #include <errno.h>
 
-#if defined(MSDOS) || defined(WIN32NATIVE)
+#ifdef MSDOS
 #include <dos.h>
-#endif /* MSDOS || WIN32NATIVE */
+#endif /* MSDOS */
+
+#ifdef WIN32NATIVE
+#include <windows.h>
+#endif
 
 #ifdef UNIX
 #include <unistd.h>
@@ -73,6 +77,24 @@
 #else
 #define HISTORY_SIZE		4
 #endif /* MSDOS */
+
+#ifdef WIN32NATIVE
+private void usleep(long usec) {
+  LARGE_INTEGER lFrequency;
+  LARGE_INTEGER lEndTime;
+  LARGE_INTEGER lCurTime;
+
+  QueryPerformanceFrequency (&lFrequency);
+  if (lFrequency.QuadPart) {
+    QueryPerformanceCounter (&lEndTime);
+    lEndTime.QuadPart += (LONGLONG) usec * lFrequency.QuadPart / 1000000;
+    do {
+      QueryPerformanceCounter (&lCurTime);
+      Sleep(0);
+     } while (lCurTime.QuadPart < lEndTime.QuadPart);
+  }
+}
+#endif
 
 private file_t *f;		/* current file */
 
