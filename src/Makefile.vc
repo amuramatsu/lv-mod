@@ -32,4 +32,5 @@ lv.exe: $(OBJS) $(UNIOBJS)
 #
 
 clean:
-	rm -f lv.exe *.obj
+	del lv.exe
+	del *.obj

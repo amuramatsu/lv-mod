@@ -32,7 +32,7 @@
 #ifdef WIN32NATIVE
 #include <windows.h>
 #include <fcntl.h>
-#include "getch_mscv.h"
+#include "getch_msvc.h"
 #endif /* WIN32NATIVE */
 
 #ifdef UNIX
@@ -181,7 +181,7 @@ public void ConsoleEnableInterrupt()
 {
 #ifdef WIN32NATIVE
   DWORD dw;
-  allow_interrupt = TRUE
+  allow_interrupt = TRUE;
   signal( SIGINT, InterruptHandler );
   GetConsoleMode(hStdin, &dw);
   SetConsoleMode(hStdin, dw | ENABLE_PROCESSED_INPUT );
@@ -452,8 +452,7 @@ public void ConsoleSetUp()
 			ENABLE_QUICK_EDIT_MODE);
     SetConsoleMode(hStdin, newConsoleMode);
   }
-  if (bStdinIsConsole)
-    GetConsoleCursorInfo(hStdout, &oldCursorInfo));
+  GetConsoleCursorInfo(hStdout, &oldCursorInfo);
 #endif /* WIN32NATIVE */
 
 #ifdef HAVE_SIGVEC
@@ -520,7 +519,7 @@ public void ConsoleSetDown()
   ConsolePrint( CR );
   ConsolePrint( LF );
   SetConsoleMode(hStdin, oldConsoleMode);
-  SetConsoleCursorInfo(hStdout, &oldCursorInfo));
+  SetConsoleCursorInfo(hStdout, &oldCursorInfo);
 #else /* !WIN32NATIVE */
   if( keypad_local )
     tputs( keypad_local, 1, putfunc );
@@ -546,7 +545,7 @@ public void ConsoleShellEscape()
 
 #ifdef WIN32NATIVE
   SetConsoleMode(hStdin, oldConsoleMode);
-  SetConsoleCursorInfo(hStdout, &oldCursorInfo));
+  SetConsoleCursorInfo(hStdout, &oldCursorInfo);
   ConsoleSetCur( 0, HEIGHT - 1 );
 #else /* !WIN32NATIVE */
   if( keypad_local )
@@ -562,7 +561,7 @@ public void ConsoleShellEscape()
 
 public void ConsoleReturnToProgram()
 {
-#ifndef WIN32NATIVE
+#ifdef WIN32NATIVE
   SetConsoleMode(hStdin, newConsoleMode);
 #else /* !WIN32NATIVE */
   if( keypad_xmit )
