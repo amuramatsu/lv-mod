@@ -827,23 +827,25 @@ private void CommandNextPage( unsigned int arg )
 private void CommandRepeatForward( unsigned int arg )
 {
   if( NULL != f->find.pattern )
-    message = CommandFindContinue( f, FORWARD );
+    message = CommandFindContinue( f, f->find.before_direction == FORWARD ? FORWARD : BACKWARD);
 }
 
 private void CommandRepeatBackward( unsigned int arg )
 {
   if( NULL != f->find.pattern )
-    message = CommandFindContinue( f, BACKWARD );
+    message = CommandFindContinue( f, f->find.before_direction == FORWARD ? BACKWARD : FORWARD);
 }
 
 private void CommandFindForward( unsigned int arg )
 {
   message = CommandFindSetPattern( f, FORWARD );
+  f->find.before_direction = FORWARD;
 }
 
 private void CommandFindBackward( unsigned int arg )
 {
   message = CommandFindSetPattern( f, BACKWARD );
+  f->find.before_direction = BACKWARD;
 }
 
 private void CommandFileStatus( unsigned int arg )
