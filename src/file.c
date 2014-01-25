@@ -99,13 +99,13 @@ public byte *FileLoadLine( file_t *f, int *length, boolean_t *simple )
 #ifdef USE_UTF16
   ch = getc(f->fp);
   if (AUTOSELECT == f->inputCodingSystem) {
+    /* BOM check */
     if (ch != EOF) {
       int ch2 = getc(f->fp);
-      if (ch == 0xfe && ch2 == 0xff) {
+      if (ch == 0xfe && ch2 == 0xff)
         f->inputCodingSystem = UTF_16LE;
-      } else if (ch == 0xff && ch2 == 0xfe) {
+      else if (ch == 0xff && ch2 == 0xfe)
         f->inputCodingSystem = UTF_16BE;
-      }
       if (ch2 != EOF)
 	ungetc(ch2, f->fp);
     }
@@ -253,6 +253,17 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
       putc( ch, f->fp );
       count++;
 #ifdef USE_UTF16
+      if (AUTOSELECT == f->inputCodingSystem || UTF_16 == f->inputCodingSystem) {
+	/* BOM check */
+	int ch2;
+	if (EOF != (ch2 = getc(f->sp))) {
+	  if (ch == 0xfe && ch2 == 0xff)
+	    f->inputCodingSystem = UTF_16BE;
+	  else if (ch == 0xff && ch2 == 0xfe)
+	    f->inputCodingSystem = UTF_16LE;
+	  ungetc(ch2, f->sp);
+	}
+      }
       if (IsUtf16Encoding(f->inputCodingSystem)) {
 	int ch2;
 	if (EOF == (ch2 = getc(f->sp)))
@@ -311,6 +322,17 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
     while( EOF != (ch = getc( f->fp )) ){
       count++;
 #ifdef USE_UTF16
+      if (AUTOSELECT == f->inputCodingSystem || UTF_16 == f->inputCodingSystem) {
+	/* BOM check */
+	int ch2;
+	if (EOF != (ch2 = getc(f->fp))) {
+	  if (ch == 0xfe && ch2 == 0xff)
+	    f->inputCodingSystem = UTF_16BE;
+	  else if (ch == 0xff && ch2 == 0xfe)
+	    f->inputCodingSystem = UTF_16LE;
+	  ungetc(ch2, f->fp);
+	}
+      }
       if (IsUtf16Encoding(f->inputCodingSystem)) {
 	int ch2;
 	if (EOF == (ch2 = getc(f->fp)))
