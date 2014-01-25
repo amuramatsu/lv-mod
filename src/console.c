@@ -29,6 +29,10 @@
 #include <dos.h>
 #endif /* MSDOS */
 
+#ifdef WIN32NATIVE
+#include <windows.h>
+#endif /* WIN32NATIVE */
+
 #ifdef UNIX
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -56,6 +60,12 @@
 #include <console.h>
 
 #define ANSI_ATTR_LENGTH	8
+
+#ifdef WIN32NATIVE
+private HANDLE hStdin;
+private HANDLE hStdout;
+private DWORD oldConsoleMode;
+#endif
 
 #if defined( MSDOS ) || defined( WIN32 )
 private char tbuf[ 16 ];
@@ -147,12 +157,12 @@ public void ConsoleResetAnsiSequence()
   ansi_hilight		= "1";
 }
 
-#ifdef MSDOS
+#if defined(MSDOS) || defined(WIN32NATIVE)
 private void InterruptIgnoreHandler( int arg )
 {
   signal( SIGINT, InterruptIgnoreHandler );
 }
-#endif /* MSDOS */
+#endif /* MSDOS || WIN32NATIVE */
 
 private RETSIGTYPE InterruptHandler( int arg )
 {
@@ -165,10 +175,10 @@ private RETSIGTYPE InterruptHandler( int arg )
 
 public void ConsoleEnableInterrupt()
 {
-#ifdef MSDOS
+#if defined(MSDOS) || defined(WIN32NATIVE)
   allow_interrupt = TRUE;
   signal( SIGINT, InterruptHandler );
-#endif /* MSDOS */
+#endif /* MSDOS || WIN32NATIVE */
 
 #ifdef UNIX
   signal( SIGTSTP, SIG_IGN );
@@ -184,10 +194,10 @@ public void ConsoleEnableInterrupt()
 
 public void ConsoleDisableInterrupt()
 {
-#ifdef MSDOS
+#if defined(MSDOS) || defined(WIN32NATIVE)
   allow_interrupt = FALSE;
   signal( SIGINT, InterruptIgnoreHandler );
-#endif /* MSDOS */
+#endif /* MSDOS || WIN32NATIVE */
 
 #ifdef UNIX
 #ifdef HAVE_TERMIOS_H
@@ -203,6 +213,16 @@ public void ConsoleDisableInterrupt()
 
 public void ConsoleGetWindowSize()
 {
+#ifdef WIN32NATIVE
+  CONSOLE_SCRERN_BUFFER_INFO info;
+  WIDTH  = 80;
+  HEIGHT = 24;
+  if (GetConsoleScreenBufferInfo(hStdOut, &info)) {
+    WIDTH = info.dwSize.X;
+    HEIGHT = info.dwSize.Y;
+  }
+#endif /* WIN32NATIVE */
+
 #ifdef UNIX
 #ifdef WIN32
   WIDTH  = 80;
@@ -248,6 +268,26 @@ public void ConsoleTermInit()
    * 2. retrieve window size
    * 3. initialize terminal status
    */
+#ifdef WIN32NATIVE
+  DWORD dw;
+  hStdin  = GetStdHandle(STD_INPUT_HANDLE);   /* 標準入力ハンドルの取得 */
+  hStdout = GetStdHandle(STD_OUTPUT_HANDLE);  /* 標準出力ハンドルの取得 */
+  /* stdin リダイレクト時の対処（stdinをunbuffered mode に）*/
+  setvbuf(stdin, NULL, _IONBF, 0);
+  setmode(fileno(stdin), O_BINARY);
+  if (GetConsoleMode(hStdin, &dw)) {
+    /* Win32コンソールの場合は念のためダイレクトモードに設定 */
+    bStdinIsConsole = TRUE;
+    old_console_mode = dw;
+    dw &= ~(ENABLE_PROCESSED_INPUT |
+            ENABLE_LINE_INPUT |
+            ENABLE_ECHO_INPUT |
+            ENABLE_INSERT_MODE |
+            ENABLE_QUICK_EDIT_MODE);
+    SetConsoleMode(hStdin, dw);
+    /* 終了時は元の値に戻したほうがいいかも… */
+  }
+#endif
 
 #if defined( MSDOS ) || defined( WIN32 )
   byte *ptr;
@@ -376,17 +416,19 @@ public void ConsoleTermInit()
     no_scroll = FALSE;
 #endif /* TERMINFO */
 
+#ifndef WIN32NATIVE
   if( enter_ca_mode )
     tputs( enter_ca_mode, 1, putfunc );
   if( keypad_xmit )
     tputs( keypad_xmit, 1, putfunc );
+#endif /* WIN32NATIVE */
 }
 
 public void ConsoleSetUp()
 {
-#ifdef MSDOS
+#if define(MSDOS) || defined(WIN32NATIVE)
   signal( SIGINT, InterruptIgnoreHandler );
-#endif /* MSDOS */
+#endif /* MSDOS || WIN32NATIVE */
 
 #ifdef HAVE_SIGVEC
   struct sigvec sigVec;
@@ -447,6 +489,9 @@ public void ConsoleSetDown()
 #endif /* HAVE_TERMIOS_H */
 #endif /* UNIX */
 
+#ifdef WIN32NATIVE
+  FreeConsole();
+#else
   if( keypad_local )
     tputs( keypad_local, 1, putfunc );
   if( exit_ca_mode )
@@ -456,6 +501,7 @@ public void ConsoleSetDown()
     ConsolePrint( CR );
     ConsolePrint( LF );
   }
+#endif
 }
 
 public void ConsoleShellEscape()
@@ -496,13 +542,26 @@ public void ConsoleReturnToProgram()
 
 public void ConsoleSuspend()
 {
-#ifndef MSDOS /* if NOT defind */
+#if !(defined(MSDOS) || defined(WIN32NATIVE)) /* if NOT defind */
   kill(0, SIGSTOP);	/*to pgrp*/
 #endif
 }
 
 public int ConsoleGetChar()
 {
+#ifdef WIN32NATIVE
+  int c;
+  if (bStdinIsConsole) {
+      c = getch_replacement_for_msvc();
+  } else {
+      /* stdin がリダイレクトされている場合（わりと適当） */
+      c = fgetc(stdin);
+      if (c == '\n') c = '\r';
+      if (c == EOF) return EOF;
+  }
+  return c & 255;
+#endif /* WIN32NATIVE */
+
 #ifdef MSDOS
   return getch();
 #endif /* MSDOS */
@@ -537,9 +596,9 @@ public int ConsolePrint( byte c )
 */
 #endif /* MSDOS */
 
-#ifdef UNIX
+#if defined(UNIX) || defined(WIN32NATIVE)
   return putchar( c );
-#endif /* UNIX */
+#endif /* UNIX || WIN32NATIVE */
 }
 
 public void ConsolePrints( byte *str )
@@ -567,13 +626,20 @@ public void ConsolePrintsStr( str_t *str, int length )
 
 public void ConsoleFlush()
 {
-#ifdef UNIX
+#if defined(UNIX) || defined(WIN32NATIVE)
   fflush( stdout );
-#endif /* UNIX */
+#endif /* UNIX || WIN32NATIVE */
 }
 
 public void ConsoleSetCur( int x, int y )
 {
+#ifdef WIN32NATIVE
+  COORD pos;
+  pos.X = x;
+  pos.Y = y;
+  SetConsoleCursorPosition(hStdout, pos);
+#endif /* WIN32NATIVE */
+
 #if defined( MSDOS ) || defined( WIN32 )
   sprintf( tbuf, "\x1b[%d;%dH", y + 1, x + 1 );
   ConsolePrints( tbuf );
@@ -590,24 +656,105 @@ public void ConsoleSetCur( int x, int y )
 
 public void ConsoleOnCur()
 {
+#ifdef WIN32NATIVE
+  CONSOLE_CURSOR_INFO info;
+  if (GetConsoleCursorInfo(hStdout, &info)) {
+    info.bVisible = TRUE;
+    SetConsoleCorsurInfo(hStdout, &info);
+  }
+#else
   if( cursor_visible )
     tputs( cursor_visible, 1, putfunc );
+#endif
 }
 
 public void ConsoleOffCur()
 {
+#ifdef WIN32NATIVE
+  CONSOLE_CURSOR_INFO info;
+  if (GetConsoleCursorInfo(hStdout, &info)) {
+    info.bVisible = FALSE;
+    SetConsoleCorsurInfo(hStdout, &info);
+  }
+#else
   if( cursor_invisible )
     tputs( cursor_invisible, 1, putfunc );
+#endif
 }
 
 public void ConsoleClearScreen()
 {
+#ifdef WIN32NATIVE
+  COORD                       coordScreen;
+  DWORD                       dwCharsWritten;
+  DWORD                       dwConsoleSize;
+  CONSOLE_SCREEN_BUFFER_INFO  csbi;
+
+  coordScreen.X = 0;
+  coordScreen.Y = 0;
+  
+  /* コンソールのキャラクタバッファ情報を取得 */
+  if (GetConsoleScreenBufferInfo(hStdout, &csbi) == FALSE)
+    return;
+
+  /* キャラクタバッファサイズを計算 */
+  dwConsoleSize = csbi.dwSize.X * csbi.dwSize.Y;
+
+  /* キャラクタバッファを空白で埋める */
+  FillConsoleOutputCharacter(
+    hStdout,' ',dwConsoleSize,coordScreen,&dwCharsWritten);
+
+  /* 現在のテキスト属性の取得 */
+  if (GetConsoleScreenBufferInfo(hStdout,&csbi) == FALSE)
+    return;
+
+  /* すべての文字に対して取得したテキスト属性を適用する */
+  FillConsoleOutputAttribute(
+    hStdout,csbi.wAttributes,dwConsoleSize,coordScreen,&dwCharsWritten);
+
+  /* カーソル位置を左上角に移動 */
+  SetConsoleCursorPosition(hStdout,coordScreen);
+#else
   tputs( clear_screen, 1, putfunc );
+#endif
 }
 
 public void ConsoleClearRight()
 {
+#ifdef WIN32NATIVE
+  COORD                       coordScreen;
+  DWORD                       dwCharsWritten;
+  DWORD                       dwConsoleSize;
+  CONSOLE_SCREEN_BUFFER_INFO  csbi;
+
+  /* カーソル位置を取得 */
+  if (GetConsoleCursorPosition(hStdout, &coordScreen) == FALSE)
+    return;
+   
+  /* コンソールのキャラクタバッファ情報を取得 */
+  if (GetConsoleScreenBufferInfo(hStdout, &csbi) == FALSE)
+    return;
+
+  /* キャラクタバッファサイズを計算 */
+  dwConsoleSize = csbi.dwSize.X - coordScreen.X;
+
+  /* キャラクタバッファを空白で埋める */
+  FillConsoleOutputCharacter(
+    hStdout,' ',dwConsoleSize,coordScreen,&dwCharsWritten);
+
+  /* 現在のテキスト属性の取得 */
+  if (GetConsoleScreenBufferInfo(hStdout,&csbi) == FALSE)
+    return;
+
+  /* すべての文字に対して取得したテキスト属性を適用する */
+  FillConsoleOutputAttribute(
+    hStdout,csbi.wAttributes,dwConsoleSize,coordScreen,&dwCharsWritten);
+
+  /* カーソル位置をもとに戻す */
+  SetConsoleCursorPosition(hStdout,coordScreen);
+#else
   tputs( clr_eol, 1, putfunc );
+#endif
 }
 
 public void ConsoleGoAhead()

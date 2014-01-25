@@ -28,9 +28,13 @@
 #include <unistd.h>
 #endif /* UNIX */
 
-#if defined(MSDOS) || defined(WIN32NATIVE)
+#ifdef MSDOS
 #include <dos.h>
-#endif /* MSDOS || WIN32NATIVE */
+#endif /* MSDOS */
+
+#ifdef WIN32NATIVE
+#include <windows.h>
+#endif /* WIN32NATIVE */
 
 #include <import.h>
 #include <itable.h>
@@ -211,8 +215,14 @@ public boolean_t IsAtty( int fd )
     return FALSE;
   }
 #elif defined(WIN32NATIVE)
-  #warn "XXX implement ME"
-  return TRUE;
+  DWORD mode;
+  CONSOLE_CURSOR_INFO info;
+  if (GetConsoleMode(fd, &mode))
+    return TRUE;
+  else if (GetConsoleCursorInfo(fd, &info))
+    return TRUE;
+  else
+    return FALSE;
 #else /* ! (MSDOS || WIN32NATIVE) */
   if( isatty( fd ) )
     return TRUE;

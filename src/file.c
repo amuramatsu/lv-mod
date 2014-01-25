@@ -24,9 +24,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(MSDOS) || defined(WIN32NATIVE)
+#ifdef MSDOS
 #include <dos.h>
-#endif /* MSDOS || WIN32NATIVE */
+#endif /* MSDOS */
 
 #ifdef UNIX
 #include <unistd.h>
@@ -288,6 +288,10 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
 	if( TRUE == allow_interrupt )
 	  bdos( 0x0b, 0, 0 );
 #endif /* MSDOS */
+#ifdef WIN32NATIVE
+	if( TRUE == allow_interrupt )
+	  ConsoleEnableCtrlC(TRUE);
+#endif /* WIN32NATIVE */
 	if( TRUE == kb_interrupted )
 	  return FALSE;
       }

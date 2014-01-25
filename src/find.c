@@ -22,9 +22,9 @@
 
 #include <stdlib.h>
 
-#if defined(MSDOS) || defined(WIN32NATIVE)
+#ifdef MSDOS
 #include <dos.h>
-#endif /* MSDOS || WIN32NATIVE */
+#endif /* MSDOS */
 
 #include <import.h>
 #include <fetch.h>
@@ -263,6 +263,10 @@ private boolean_t FindContinue( file_t *f, position_t *pos, boolean_t forward )
     if( TRUE == allow_interrupt )
       bdos( 0x0b, 0, 0 );
 #endif /* MSDOS */
+#ifdef WIN32NATIVE
+    if( TRUE == allow_interrupt )
+      ConsoleEnableCtrlC(TRUE);
+#endif /* WIN32NATIVE */
     if( TRUE == kb_interrupted )
       break;
     for( offset = 0 ; offset < LV_PAGE_SIZE && FALSE == f->eof ; offset++ ){
@@ -346,6 +350,10 @@ public int FindForward( file_t *f )
     if( TRUE == allow_interrupt )
       bdos( 0x0b, 0, 0 );
 #endif /* MSDOS */
+#ifdef WIN32NATIVE
+    if( TRUE == allow_interrupt )
+      ConsoleEnableCtrlC(TRUE);
+#endif /* WIN32NATIVE */
     if( TRUE == kb_interrupted )
       break;
     if( TRUE == f->page[ pos.blk ].line[ pos.off ].head[ pos.phy ].hit ){
@@ -433,6 +441,10 @@ public int FindBackward( file_t *f )
     if( TRUE == allow_interrupt )
       bdos( 0x0b, 0, 0 );
 #endif /* MSDOS */
+#ifdef WIN32NATIVE
+    if( TRUE == allow_interrupt )
+      ConsoleEnableCtrlC(TRUE);
+#endif /* WIN32NATIVE */
     if( TRUE == kb_interrupted )
       break;
     if( TRUE == f->page[ pos.blk ].line[ pos.off ].head[ pos.phy ].hit ){
