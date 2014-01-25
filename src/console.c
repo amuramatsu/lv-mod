@@ -587,9 +587,6 @@ public void ConsoleSetUp()
 #endif /* MSDOS || WIN32NATIVE */
 
 #ifdef WIN32NATIVE
-  /* stdin リダイレクト時の対処（stdinをunbuffered mode に）*/
-  setvbuf(stdin, NULL, _IONBF, 0);
-  setmode(fileno(stdin), O_BINARY);
   if (GetConsoleMode(hConIn, &oldConsoleMode)) {
     COORD size;
     newConsoleMode = oldConsoleMode;

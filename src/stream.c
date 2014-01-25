@@ -156,35 +156,37 @@ private void StdinDuplicationFailed()
 public stream_t *StreamReconnectStdin()
 {
   stream_t *st;
-#ifdef UNIX
+#if defined(UNIX) || defined(WIN32NATIVE)
   struct stat sbuf;
 #endif
 
   st = StreamAlloc();
 
-#if defined(MSDOS) || defined(WIN32NATIVE)
+#if defined(MSDOS)
   if( NULL == (st->fp = fdopen( dup( 0 ), "rb" )) )
     StdinDuplicationFailed();
   close( 0 );
   dup( 1 );
-#endif /* MSDOS || WIN32NATIVE */
-#ifdef UNIX
+#endif /* MSDOS */
+#if defined(UNIX) || defined(WIN32NATIVE)
   fstat( 0, &sbuf );
   if( S_IFREG == ( sbuf.st_mode & S_IFMT ) ){
     /* regular */
-    if( NULL == (st->fp = fdopen( dup( 0 ), "r" )) )
+    if( NULL == (st->fp = fdopen( dup( 0 ), "rb" )) )
       StdinDuplicationFailed();
   } else {
     /* socket */
     if( NULL == (st->fp = (FILE *)tmpfile()) )
       perror( "temporary file" ), exit( -1 );
-    if( NULL == (st->sp = fdopen( dup( 0 ), "r" )) )
+    if( NULL == (st->sp = fdopen( dup( 0 ), "rb" )) )
       StdinDuplicationFailed();
   }
   close( 0 );
+#ifdef UNIX
   if( IsAtty( 1 ) && 0 != open( "/dev/tty", O_RDONLY ) )
     perror( "/dev/tty" ), exit( -1 );
-#endif /* UNIX */
+#endif
+#endif /* UNIX || WIN32NATIVE */
 
   return st;
 }
