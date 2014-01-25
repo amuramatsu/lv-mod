@@ -30,7 +30,7 @@ public void Banner()
 {
   fprintf( stderr,
 #ifdef PATCH_VERSION
-	  "# lv " VERSION " [" WIN32N_VERSION "]\n"
+	  "# lv " VERSION " [" PATCH_VERSION "]\n"
 #else
 	  "# lv " VERSION "\n"
 #endif
