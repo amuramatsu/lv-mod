@@ -248,13 +248,14 @@ private WORD Win32Attribute( byte attr )
   else if (ATTR_STANDOUT & attr)
     w = BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE;
   else if (ATTR_REVERSE & attr) {
-    w |= BACKGROUND_INTENSITY;
     if (ATTR_COLOR_R & attr)
       w |= BACKGROUND_RED;
     if (ATTR_COLOR_G & attr)
       w |= BACKGROUND_GREEN;
     if (ATTR_COLOR_B & attr)
       w |= BACKGROUND_BLUE;
+    if ((ATTR_COLOR & attr) == 0)
+      w |= BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE;
     if (ATTR_BLINK & attr)
       w |= FOREGROUND_RED | BACKGROUND_INTENSITY;
     if (ATTR_UNDERLINE & attr)
@@ -269,6 +270,8 @@ private WORD Win32Attribute( byte attr )
       w |= FOREGROUND_GREEN;
     if (ATTR_COLOR_B & attr)
       w |= FOREGROUND_BLUE;
+    if ((ATTR_COLOR & attr) == 0)
+      w |= FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
     if (ATTR_BLINK & attr)
 	w |= BACKGROUND_RED | FOREGROUND_INTENSITY;
     if (ATTR_UNDERLINE & attr)
