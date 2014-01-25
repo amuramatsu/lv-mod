@@ -158,16 +158,35 @@ SaveConsoleBuffer(CONSOLE_BUF_SAVED *save)
   int        size;
   COORD      pos;
   SMALL_RECT region;
+  int        Y, incr;
  
-  pos.X = pos.Y = 0;
   GetConsoleScreenBufferInfo(hStdout, &save->csbi);
   size = save->csbi.dwSize.X * save->csbi.dwSize.Y;
   save->buffer = (PCHAR_INFO)malloc(size * sizeof(CHAR_INFO));
-  region.Top = 0;
-  region.Bottom = save->csbi.srWindow.Bottom;
+  pos.X = 0;
   region.Left = 0;
   region.Right = save->csbi.dwSize.X - 1;
-  ReadConsoleOutput(hStdout, save->buffer, save->csbi.dwSize, pos, &region);
+  incr = 12000 / save->csbi.dwSize.X;
+  for (Y = 0; Y < save->csbi.dwSize.Y; Y += incr) {
+    /*
+     * Read into position (0, Y) in our buffer.
+     */
+    pos.Y = Y;
+    /*
+     * Read the region whose top left corner is (0, Y) and whose bottom
+     * right corner is (width - 1, Y + Y_incr - 1).  This should define
+     * a region of size width by Y_incr.  Don't worry if this region is
+     * too large for the remaining buffer; it will be cropped.
+     */
+    region.Top = Y;
+    region.Bottom = Y + incr - 1;
+    if (!ReadConsoleOutput(hStdout, save->buffer, save->csbi.dwSize,
+ 			   pos, &region)) {
+      free(save->buffer);
+      save->buffer = NULL;
+      return;
+    }
+  }
   save->valid = TRUE;
 }
 
@@ -178,15 +197,14 @@ RestoreConsoleBuffer(CONSOLE_BUF_SAVED *save)
     COORD      pos;
     SMALL_RECT region;
     pos.X = pos.Y = 0;
-    region.Top = 0;
-    region.Bottom = save->csbi.srWindow.Bottom;
-    region.Left = 0;
+    region.Top = region.Left = 0;
+    region.Bottom = save->csbi.dwSize.Y - 1;
     region.Right = save->csbi.dwSize.X - 1;
     SetConsoleScreenBufferSize(hStdout, save->csbi.dwSize);
-    WriteConsoleOutput(hStdout, save->buffer, save->csbi.dwSize, pos, &region);
-    SetConsoleCursorPosition(hStdout, save->csbi.dwCursorPosition);
     SetConsoleWindowInfo(hStdout, TRUE, &save->csbi.srWindow);
+    SetConsoleCursorPosition(hStdout, save->csbi.dwCursorPosition);
     SetConsoleTextAttribute(hStdout, save->csbi.wAttributes);
+    WriteConsoleOutput(hStdout, save->buffer, save->csbi.dwSize, pos, &region);
     free(save->buffer);
     save->valid = FALSE;
   }
