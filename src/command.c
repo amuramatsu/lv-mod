@@ -868,7 +868,11 @@ private void CommandFileStatus( unsigned int arg )
 
 private void CommandVersion( unsigned int arg )
 {
+#ifdef WIN32N_VERSION
+  label = VERSION " " WIN32N_VERSION;
+#else
   label = VERSION;
+#endif
 }
 
 private void CommandRedisplay( unsigned int arg )
