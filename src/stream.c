@@ -51,29 +51,49 @@ private byte *xz_filter = "xzcat";
 
 #ifdef WIN32NATIVE
 /* Win32's tmpfile is very stupid!, so replace my own one */
-#define tmpfile()	win32_tmpfile()
+#define tmpfile()	w32_tmpfile()
 
-private char *tmpf = NULL;
-private FILE *tmp_file = NULL;
-private void win32_tmpfile_cleanup(void)
+typedef struct _w32_tmpfile_data {
+  struct _w32_tmpfile_data *next;
+  FILE *file;
+  char name[1];
+} w32_tmpfile_data;
+private w32_tmpfile_data *w32_tmpfile_ptr = NULL;
+
+private void w32_tmpfile_cleanup(void)
 {
-  if (tmp_file != NULL)
-    fclose(tmp_file);
-  if (tmpf != NULL)
-    unlink(tmpf);
+  w32_tmpfile_data *ptr = w32_tmpfile_ptr;
+  while (ptr != NULL) {
+    fclose(ptr->file);
+    unlink(ptr->name);
+    ptr = ptr->next;
+  }
 }
 
-private FILE *win32_tmpfile()
+private FILE *w32_tmpfile()
 {
-  if (tmp_file != NULL)
-    return NULL;
+  char *tmpf;
+  FILE *f;
+  w32_tmpfile_data *data, **pptr;
+  
   tmpf = tempnam( NULL, "lv" );
-  if(tmpf == NULL || (tmp_file = fopen( tmpf, "wb+" )) == NULL) {
-    tmpf = NULL;
+  if(tmpf == NULL || (f = fopen( tmpf, "wb+" )) == NULL)
+    return NULL;
+  if((data = malloc(sizeof(w32_tmpfile_data) + strlen(tmpf))) == NULL) {
+    fclose(f);
+    unlink(tmpf);
     return NULL;
   }
-  atexit(win32_tmpfile_cleanup);
-  return tmp_file;
+  if (w32_tmpfile_ptr == NULL)
+    atexit(w32_tmpfile_cleanup);
+  data->next = NULL;
+  data->file = f;
+  strcpy(data->name, tmpf);
+  pptr = &w32_tmpfile_ptr;
+  while (*pptr != NULL)
+    pptr = &((*pptr)->next);
+  *pptr = data;
+  return f;
 }
 #endif /* WIN32NATIVE */
 
