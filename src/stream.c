@@ -47,6 +47,7 @@
 
 private byte *gz_filter = "zcat";
 private byte *bz2_filter = "bzcat";
+private byte *lzma_filter = "lzcat";
 private byte *xz_filter = "xzcat";
 
 #ifdef WIN32NATIVE
@@ -122,18 +123,20 @@ public stream_t *StreamOpen( byte *file )
 
   st = StreamAlloc();
 
-  if( NULL != (exts = Exts( file )) ){
+  if( stream_filter && NULL != (exts = Exts( file )) ){
     if( !strcmp( "gz", exts ) || !strcmp( "GZ", exts )
 	|| !strcmp( "z", exts ) || !strcmp( "Z", exts ) )
       filter = gz_filter;
     else if( !strcmp( "bz2", exts ) || !strcmp( "BZ2", exts ) )
       filter = bz2_filter;
+    else if( !strcmp( "lzma", exts ) || !strcmp( "LZMA", exts ) )
+      filter = lzma_filter;
     else if( !strcmp( "xz", exts ) || !strcmp( "XZ", exts ) )
       filter = xz_filter;
   }
   if( NULL != filter ){
     /*
-     * zcat or bzcat
+     * zcat, bzcat, lzcat or xzcat
      */
     if( NULL == (st->fp = (FILE *)tmpfile()) )
       perror( "temporary file" ), exit( -1 );

@@ -16,6 +16,8 @@ typedef struct {
   int  pid;
 } stream_t;
 
+public boolean_t stream_filter;
+
 public stream_t *StreamOpen( byte *file );
 public boolean_t StreamClose( stream_t *st );
 public stream_t *StreamReconnectStdin();

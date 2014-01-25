@@ -40,6 +40,7 @@
 #include <command.h>
 #include <conv.h>
 #include <uty.h>
+#include <stream.h>
 #include <version.h>
 #ifdef HAVE_SETLOCALE
 #include <locale.h>
@@ -131,6 +132,7 @@ private void ConfInitArgs( conf_t *conf )
   carefully_divide	= TRUE;		/* display.h */
   adjust_charset	= TRUE;		/* guess.h */
   no_scroll		= TRUE;		/* console.h */
+  stream_filter		= TRUE;		/* stream.h */
 
   allow_unify		= FALSE;	/* itable_t.h */
   allow_ansi_esc	= FALSE;	/* console.h */
@@ -367,6 +369,7 @@ private void ConfArg( conf_t *conf, byte **argv, byte *location )
 	case 's': smooth_paging = FALSE; s++; continue;
 	case 'u': allow_unify = FALSE; s++; continue;
 	case 'v': grep_inverted = FALSE; s++; continue;
+	case 'w': stream_filter = FALSE; s++; continue;
 	case 'z': hz_detection = FALSE; s++; continue;
 	case SP:
 	case HT:
