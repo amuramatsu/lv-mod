@@ -20,8 +20,7 @@ OBJS = itable.o ctable.o \
 	eucjapan.o shiftjis.o big5.o hz.o raw.o \
 	fetch.o screen.o command.o display.o \
 	find.o re.o nfa.o dfa.o \
-	conv.o version.o conf.o lv.o console.o guesslocale.o \
-	getch_msvc.o
+	conv.o version.o conf.o lv.o console.o guesslocale.o
 UNIOBJS= utf.o unimap.o unirev.o
 
 lv.exe: $(OBJS) $(UNIOBJS)
