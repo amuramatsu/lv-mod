@@ -70,8 +70,6 @@
 #define COM_FILE_PREV		'p'
 #define COM_FILE_NEXT		'n'
 
-#define IsNumber( c )		( (c) >= '0' && (c) <= '9' )
-
 #ifdef MSDOS
 #define HISTORY_SIZE		2
 #else
@@ -167,6 +165,22 @@ private void CommandCopyToHistory( str_t *str, int length )
     historyIndex = 0;
 }
 
+private int CommandGetChar()
+{
+  int ch;
+
+  if( FALSE == initcmd_mode ){
+    return ConsoleGetChar();
+  }
+
+  ch = initcmd_str[ initcmd_curp++ ];
+  if( initcmd_str[ initcmd_curp ] == NUL ){
+    initcmd_mode = FALSE;
+    free( initcmd_str );
+  }
+  return ch;
+}
+
 private i_str_t *CommandGetLine( file_t *f, byte prompt )
 {
   int ch, ptr, iptr, width, pre_width, index;
@@ -186,13 +200,14 @@ private i_str_t *CommandGetLine( file_t *f, byte prompt )
   pre_width = -1;
   for( ; ; ){
     ConsoleFlush();
-    ch = ConsoleGetChar();
+    ch = CommandGetChar();
     switch( ch ){
     case EOF:
     case BEL: /* C-g */
       if( NULL != istr )
 	IstrFree( istr );
       return NULL;
+    case LF: /* C-j */
     case CR: /* C-m */
       if( NULL == istr )
 	return NULL;
@@ -366,7 +381,7 @@ private boolean_t CommandGetNumber( unsigned int *number, int *newCom )
     ConsolePrints( buf );
 
     ConsoleFlush();
-    ch = ConsoleGetChar();
+    ch = CommandGetChar();
     if( EOF == ch )
       return FALSE;
     else if( BS == ch || DEL == ch ){
@@ -519,7 +534,7 @@ private void CommandReload( unsigned int arg )
   byte defaultCodingSystem;
   stream_t st;
 
-  if( NULL != f->sp ){
+  if( NULL != f->sp.iop ){
     label = "cannot reload non-regular files";
     return;
   }
@@ -528,9 +543,9 @@ private void CommandReload( unsigned int arg )
     label = "cannot reload current file";
     return;
   } else {
-    fclose( f->fp );
+    fclose( f->fp.iop );
     st.fp = fp;
-    st.sp = f->sp;
+    st.sp = f->sp.iop;
     st.pid = f->pid;
   }
 
@@ -640,7 +655,7 @@ private void CommandEdit( unsigned int arg )
   byte *fileName;
   int lineNumber;
 
-  if( NULL != f->sp ){
+  if( NULL != f->sp.iop ){
     label = "cannot edit non-regular files";
     return;
   }
@@ -716,11 +731,11 @@ private void CommandBottomOfFile( unsigned int arg )
 
 private void CommandPoll( unsigned int arg )
 {
-  long pos;
+  offset_t pos;
 
   kb_interrupted = FALSE;
 
-  if( NULL != f->sp ){
+  if( NULL != f->sp.iop ){
     label = "cannot poll non-regular files";
     return;
   }
@@ -740,8 +755,8 @@ private void CommandPoll( unsigned int arg )
     ConsoleSetAttribute( 0 );
     ConsoleFlush();
 
-    (void)fseek( f->fp, 0, SEEK_END );
-    pos = ftell( f->fp );
+    (void)IobufFseek( &f->fp, 0, SEEK_END );
+    pos = IobufFtell( &f->fp );
 
     ConsoleEnableInterrupt();
 
@@ -750,8 +765,8 @@ private void CommandPoll( unsigned int arg )
       if( kb_interrupted )
 	break;
 
-      (void)fseek( f->fp, 0, SEEK_END );
-      if( ftell( f->fp ) > pos ){
+      (void)IobufFseek( &f->fp, 0, SEEK_END );
+      if( IobufFtell( &f->fp ) > pos ){
 	// it grew
 	break;
       }
@@ -930,7 +945,7 @@ private void CommandCursor( unsigned int arg )
   flagLeft = flagRight = flagUp = flagDown = flagPpage = flagNpage = TRUE;
   step = 1;
   for( ; ; ){
-    ch = ConsoleGetChar();
+    ch = CommandGetChar();
     if( NULL == cur_left || ch != cur_left[ step ] )
       flagLeft = FALSE;
     if( NULL == cur_right || ch != cur_right[ step ] )
@@ -982,7 +997,7 @@ private void CommandColon( unsigned int arg )
   stream_t *st;
   file_list_t *next_target;
 
-  ch = ConsoleGetChar();
+  ch = CommandGetChar();
 
   if( COM_FILE_PREV == ch || COM_FILE_NEXT == ch ){
     if( 0 < arg ){
@@ -1211,7 +1226,7 @@ public void Command( file_t *file, byte **optional )
     }
 
     ConsoleFlush();
-    com = ConsoleGetChar();
+    com = CommandGetChar();
     if( com < 0x00 || com > 0x7f )
       continue;
 

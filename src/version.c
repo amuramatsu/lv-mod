@@ -34,7 +34,7 @@ public void Banner()
 #else
 	  "# lv " VERSION "\n"
 #endif
-	  "# All rights reserved. Copyright (C) 1996-2004 by NARITA Tomio\n"
+	  "# All rights reserved. Copyright (C) 1996-2005 by NARITA Tomio\n"
 #ifdef PATCH_VERSION
 	  "#                                      patched by MURAMATSU Atsushi\n"
 #endif
