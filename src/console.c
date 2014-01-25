@@ -757,30 +757,40 @@ public void ConsoleSuspend()
 public int ConsoleGetChar()
 {
 #ifdef WIN32NATIVE
-  INPUT_RECORD ir;
+  enum { RECORD_SIZE = 10 };
+  static int buf[RECORD_SIZE];
+  static int remain = 0;
+  INPUT_RECORD ir[RECORD_SIZE];
   DWORD count = 0;
-  for (;;) {
-    ReadConsoleInput(hConIn, &ir, 1, &count);
-    if (ir.EventType == KEY_EVENT && ir.Event.KeyEvent.bKeyDown) {
-      int aChar;
-      switch (ir.Event.KeyEvent.wVirtualKeyCode) {
-	case VK_UP:
-	case VK_PRIOR:
-	  return DLE;
-	case VK_DOWN:
-	case VK_NEXT:
-	  return SO;
-	case VK_LEFT:
-	case VK_RIGHT:
-	case VK_HOME:
-	case VK_END:
-	  continue;
+
+  while( remain == 0 ){
+    ReadConsoleInput(hConIn, ir, RECORD_SIZE, &count);
+    while( count > 0 ){
+      count--;
+      if( ir[count].EventType == KEY_EVENT &&
+	  ir[count].Event.KeyEvent.bKeyDown ){
+	int aChar = -1;
+	switch( ir[count].Event.KeyEvent.wVirtualKeyCode ){
+	  case VK_UP:
+	  case VK_PRIOR:
+	    aChar = DLE; break;
+	  case VK_DOWN:
+	  case VK_NEXT:
+	    aChar = SO; break;
+	  case VK_LEFT:
+	  case VK_RIGHT:
+	  case VK_HOME:
+	  case VK_END:
+	    break;
+	  default:
+	    aChar = ir[count].Event.KeyEvent.uChar.AsciiChar;
+	}
+	if( aChar > 0 )
+	  buf[remain++] = aChar & 0xff;
       }
-      aChar = ir.Event.KeyEvent.uChar.AsciiChar;
-      if (aChar > 0)
-	return aChar & 0xff;
     }
   }
+  return buf[--remain];
 #endif /* WIN32NATIVE */
 
 #ifdef MSDOS
