@@ -33,7 +33,6 @@
 #include <windows.h>
 #include <tchar.h>
 #include <fcntl.h>
-#include "getch_msvc.h"
 #endif /* WIN32NATIVE */
 
 #ifdef UNIX
@@ -66,10 +65,9 @@
 #define ANSI_ATTR_LENGTH	8
 
 #ifdef WIN32NATIVE
-private HANDLE hStdin;
+private HANDLE hConIn;
 private HANDLE hStdout;
 private DWORD oldConsoleMode, newConsoleMode;
-private BOOL bStdinIsConsole;
 typedef struct _console_buf_saved {
   CONSOLE_SCREEN_BUFFER_INFO csbi;
   CONSOLE_CURSOR_INFO        cci;
@@ -320,8 +318,8 @@ public void ConsoleEnableInterrupt()
   DWORD dw;
   allow_interrupt = TRUE;
   signal( SIGINT, InterruptHandler );
-  GetConsoleMode(hStdin, &dw);
-  SetConsoleMode(hStdin, dw | ENABLE_PROCESSED_INPUT );
+  GetConsoleMode(hConIn, &dw);
+  SetConsoleMode(hConIn, dw | ENABLE_PROCESSED_INPUT );
 #endif /* WIN32NATIVE */
 
 #ifdef MSDOS
@@ -345,8 +343,8 @@ public void ConsoleDisableInterrupt()
 {
 #ifdef WIN32NATIVE
   DWORD dw;
-  GetConsoleMode(hStdin, &dw);
-  SetConsoleMode(hStdin, dw & ~ENABLE_PROCESSED_INPUT );
+  GetConsoleMode(hConIn, &dw);
+  SetConsoleMode(hConIn, dw & ~ENABLE_PROCESSED_INPUT );
   allow_interrupt = FALSE;
   signal( SIGINT, InterruptIgnoreHandler );
 #endif /* WIN32NATIVE */
@@ -372,12 +370,20 @@ public void ConsoleGetWindowSize()
 {
 #ifdef WIN32NATIVE
   CONSOLE_SCREEN_BUFFER_INFO info;
-  WIDTH  = 80;
-  HEIGHT = 24;
+  COORD size;
+  if (hStdout == INVALID_HANDLE_VALUE)
+    return;
+  size.X = 80;
+  size.Y = 24;
   if (GetConsoleScreenBufferInfo(hStdout, &info)) {
-    WIDTH = info.dwSize.X;
-    HEIGHT = info.srWindow.Bottom - info.srWindow.Top + 1;
+    size.X = info.dwSize.X;
+    size.Y = info.srWindow.Bottom - info.srWindow.Top + 1;
   }
+  if (WIDTH == size.X && HEIGHT == size.Y)
+    return;
+  WIDTH = size.X;
+  HEIGHT = size.Y;
+  window_changed = TRUE;
   if (charbuf) free(charbuf);
   if (attrbuf) free(attrbuf);
   charbuf = (unsigned char *)Malloc(sizeof(TCHAR) * WIDTH);
@@ -431,8 +437,9 @@ public void ConsoleTermInit()
    */
 
 #ifdef WIN32NATIVE
-  hStdin  = GetStdHandle(STD_INPUT_HANDLE);   /* 標準入力ハンドルの取得 */
-  hStdout = GetStdHandle(STD_OUTPUT_HANDLE);  /* 標準出力ハンドルの取得 */
+  hConIn = CreateFile("CONIN$", GENERIC_READ | GENERIC_WRITE,
+		      FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+  hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
 
   ConsoleGetWindowSize();
   no_scroll = FALSE;
@@ -583,17 +590,15 @@ public void ConsoleSetUp()
   /* stdin リダイレクト時の対処（stdinをunbuffered mode に）*/
   setvbuf(stdin, NULL, _IONBF, 0);
   setmode(fileno(stdin), O_BINARY);
-  if (GetConsoleMode(hStdin, &oldConsoleMode)) {
+  if (GetConsoleMode(hConIn, &oldConsoleMode)) {
     COORD size;
-    /* Win32コンソールの場合は念のためダイレクトモードに設定 */
-    bStdinIsConsole = TRUE;
     newConsoleMode = oldConsoleMode;
     oldConsoleMode &= ~(ENABLE_PROCESSED_INPUT |
 			ENABLE_LINE_INPUT |
 			ENABLE_ECHO_INPUT |
 			ENABLE_INSERT_MODE |
 			ENABLE_QUICK_EDIT_MODE);
-    SetConsoleMode(hStdin, newConsoleMode);
+    SetConsoleMode(hConIn, newConsoleMode);
     SaveConsoleBuffer(&old_console_buf);
     size.X = WIDTH; size.Y = HEIGHT;
     SetConsoleScreenBufferSize(hStdout, size);
@@ -676,7 +681,7 @@ public void ConsoleSetDown()
 #endif /* UNIX */
 
 #ifdef WIN32NATIVE
-  SetConsoleMode(hStdin, oldConsoleMode);
+  SetConsoleMode(hConIn, oldConsoleMode);
   RestoreConsoleBuffer(&old_console_buf);
 #else /* !WIN32NATIVE */
   if( keypad_local )
@@ -702,7 +707,7 @@ public void ConsoleShellEscape()
 #endif /* UNIX */
 
 #ifdef WIN32NATIVE
-  SetConsoleMode(hStdin, oldConsoleMode);
+  SetConsoleMode(hConIn, oldConsoleMode);
   RestoreConsoleBuffer(&old_console_buf);
 #else /* !WIN32NATIVE */
   if( keypad_local )
@@ -719,7 +724,7 @@ public void ConsoleShellEscape()
 public void ConsoleReturnToProgram()
 {
 #ifdef WIN32NATIVE
-  SetConsoleMode(hStdin, newConsoleMode);
+  SetConsoleMode(hConIn, newConsoleMode);
 #else /* !WIN32NATIVE */
   if( keypad_xmit )
     tputs( keypad_xmit, 1, putfunc );
@@ -746,16 +751,36 @@ public void ConsoleSuspend()
 public int ConsoleGetChar()
 {
 #ifdef WIN32NATIVE
-  int c;
-  if (bStdinIsConsole) {
-    c = getch_replacement_for_msvc();
-  } else {
-    /* stdin がリダイレクトされている場合（わりと適当） */
-    c = fgetc(stdin);
-    if (c == '\n') c = '\r';
-    if (c == EOF) return EOF;
+  INPUT_RECORD ir;
+  DWORD count = 0;
+  for (;;) {
+    ReadConsoleInput(hConIn, &ir, 1, &count);
+    if (ir.EventType == KEY_EVENT && ir.Event.KeyEvent.bKeyDown) {
+#if 0
+      switch (ir.Event.KeyEvent.wVirtualKeyCode) {
+	case VK_UP:
+	  return LV_VK_UP;
+	case VK_DOWN:
+	  return LV_VK_DOWN;
+	case VK_LEFT:
+	  return LV_VK_LEFT;
+	case VK_RIGHT:
+	  return LV_VK_RIGHT;
+	case VK_PRIOR:
+	  return LV_VK_PRIOR;
+	case VK_NEXT:
+	  return LV_VK_NEXT;
+	case VK_HOME:
+	  return LV_VK_HOME;
+	case VK_END:
+	  return LV_VK_END;
+      }
+#endif
+      int aChar = ir.Event.KeyEvent.uChar.AsciiChar;
+      if (aChar > 0)
+	return aChar & 0xff;
+    }
   }
-  return c & 0xff;
 #endif /* WIN32NATIVE */
 
 #ifdef MSDOS

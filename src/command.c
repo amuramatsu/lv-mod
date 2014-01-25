@@ -1163,6 +1163,10 @@ public void Command( file_t *file, byte **optional )
       DisplayFull( f );
     }
 
+#ifdef WIN32NATIVE
+    ConsoleGetWindowSize();
+#endif
+
     if( TRUE == window_changed ){
       window_changed = FALSE;
       CommandRefresh( 0 );
