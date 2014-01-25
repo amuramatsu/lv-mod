@@ -909,41 +909,39 @@ private byte prevAttr = 0;
 public void ConsoleSetAttribute( byte attr )
 {
 #ifdef WIN32NATIVE
-  if( 0 != attr ) {
-    WORD w = 0;
-    if (ATTR_STANDOUT & attr) {
-      w = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
-    }
-    else if (ATTR_REVERSE & attr) {
-      if (ATTR_COLOR_R & attr)
-	w |= BACKGROUND_RED;
-      if (ATTR_COLOR_G & attr)
-	w |= BACKGROUND_GREEN;
-      if (ATTR_COLOR_B & attr)
-	w |= BACKGROUND_BLUE;
-      if (ATTR_BLINK & attr)
-	w |= FOREGROUND_RED | BACKGROUND_INTENSITY;
-      if (ATTR_UNDERLINE & attr)
-	w |= FOREGROUND_BLUE | BACKGROUND_INTENSITY;
-      if (ATTR_HILIGHT & attr)
-	w |= BACKGROUND_INTENSITY;
-    }
-    else {
-      if (ATTR_COLOR_R & attr)
-	w |= FOREGROUND_RED;
-      if (ATTR_COLOR_G & attr)
-	w |= FOREGROUND_GREEN;
-      if (ATTR_COLOR_B & attr)
-	w |= FOREGROUND_BLUE;
-      if (ATTR_BLINK & attr)
-	w |= BACKGROUND_RED | FOREGROUND_INTENSITY;
-      if (ATTR_UNDERLINE & attr)
-	w |= BACKGROUND_BLUE | FOREGROUND_INTENSITY;
-      if (ATTR_HILIGHT & attr)
-	w |= FOREGROUND_INTENSITY;
-    }
-    SetConsoleTextAttribute(hStdout, w);
+  WORD w = 0;
+  if (attr == 0 || ATTR_STANDOUT & attr) {
+    w = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
   }
+  else if (ATTR_REVERSE & attr) {
+    if (ATTR_COLOR_R & attr)
+      w |= BACKGROUND_RED;
+    if (ATTR_COLOR_G & attr)
+      w |= BACKGROUND_GREEN;
+    if (ATTR_COLOR_B & attr)
+      w |= BACKGROUND_BLUE;
+    if (ATTR_BLINK & attr)
+      w |= FOREGROUND_RED | BACKGROUND_INTENSITY;
+    if (ATTR_UNDERLINE & attr)
+      w |= FOREGROUND_BLUE | BACKGROUND_INTENSITY;
+    if (ATTR_HILIGHT & attr)
+      w |= BACKGROUND_INTENSITY;
+  }
+  else {
+    if (ATTR_COLOR_R & attr)
+      w |= FOREGROUND_RED;
+    if (ATTR_COLOR_G & attr)
+      w |= FOREGROUND_GREEN;
+    if (ATTR_COLOR_B & attr)
+      w |= FOREGROUND_BLUE;
+    if (ATTR_BLINK & attr)
+      w |= BACKGROUND_RED | FOREGROUND_INTENSITY;
+    if (ATTR_UNDERLINE & attr)
+      w |= BACKGROUND_BLUE | FOREGROUND_INTENSITY;
+    if (ATTR_HILIGHT & attr)
+      w |= FOREGROUND_INTENSITY;
+  }
+  SetConsoleTextAttribute(hStdout, w);
   prevAttr = attr;
 #else /* !WIN32NATIVE */
 #ifndef MSDOS /* IF NOT DEFINED */
