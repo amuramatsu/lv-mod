@@ -593,11 +593,17 @@ public void ConsoleSetUp()
   if (GetConsoleMode(hConIn, &oldConsoleMode)) {
     COORD size;
     newConsoleMode = oldConsoleMode;
+#if defined(ENABLE_INSERT_MODE) && defined(ENABLE_QUICK_EDIT_MODE)
     oldConsoleMode &= ~(ENABLE_PROCESSED_INPUT |
 			ENABLE_LINE_INPUT |
 			ENABLE_ECHO_INPUT |
 			ENABLE_INSERT_MODE |
 			ENABLE_QUICK_EDIT_MODE);
+#else
+    oldConsoleMode &= ~(ENABLE_PROCESSED_INPUT |
+			ENABLE_LINE_INPUT |
+			ENABLE_ECHO_INPUT);
+#endif
     SetConsoleMode(hConIn, newConsoleMode);
     SaveConsoleBuffer(&old_console_buf);
     size.X = WIDTH; size.Y = HEIGHT;
