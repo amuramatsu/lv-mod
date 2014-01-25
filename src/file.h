@@ -74,6 +74,7 @@ typedef struct {
 typedef struct {
   FILE		*iop;
 #ifdef USE_INTERNAL_IOBUF
+  int		ungetc;
   byte		buf[ IOBUF_DEFAULT_SIZE ];
   size_t	cur;
   size_t	last;

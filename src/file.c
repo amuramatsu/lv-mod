@@ -74,6 +74,11 @@ public void FileFreeLine( file_t *f )
 #ifdef USE_INTERNAL_IOBUF
 public inline int IobufGetc( iobuf_t *iobuf )
 {
+  if( iobuf->ungetc != EOF ){
+    int ch = iobuf->ungetc;
+    iobuf->ungetc = EOF;
+    return ch;
+  }
   if( iobuf->cur >= iobuf->last ){
     /* no stream buffer, reset and fill now */
     iobuf->cur = 0;
@@ -89,7 +94,10 @@ public inline int IobufUngetc( int ch, iobuf_t *iobuf )
 {
   if( iobuf->cur == 0 ){
     /* XXX: it should be tied to fp sanely */
-    return EOF;
+    if( iobuf->ungetc != EOF )
+      return EOF;
+    iobuf->ungetc = ch;
+    return ch;
   }
   iobuf->buf[ --iobuf->cur ] = (byte)ch;
   return ch;
@@ -594,8 +602,10 @@ public file_t *FileAttach( byte *fileName, stream_t *st,
 #ifdef USE_INTERNAL_IOBUF
   f->fp.cur		= 0;
   f->fp.last		= 0;
+  f->fp.ungetc		= EOF;
   f->sp.cur		= 0;
   f->sp.last		= 0;
+  f->sp.ungetc		= EOF;
 #endif
   f->pid		= st->pid;
   f->lastSegment	= 0;
