@@ -762,27 +762,21 @@ public int ConsoleGetChar()
   for (;;) {
     ReadConsoleInput(hConIn, &ir, 1, &count);
     if (ir.EventType == KEY_EVENT && ir.Event.KeyEvent.bKeyDown) {
-#if 0
+      int aChar;
       switch (ir.Event.KeyEvent.wVirtualKeyCode) {
 	case VK_UP:
-	  return LV_VK_UP;
-	case VK_DOWN:
-	  return LV_VK_DOWN;
-	case VK_LEFT:
-	  return LV_VK_LEFT;
-	case VK_RIGHT:
-	  return LV_VK_RIGHT;
 	case VK_PRIOR:
-	  return LV_VK_PRIOR;
+	  return DLE;
+	case VK_DOWN:
 	case VK_NEXT:
-	  return LV_VK_NEXT;
+	  return SO;
+	case VK_LEFT:
+	case VK_RIGHT:
 	case VK_HOME:
-	  return LV_VK_HOME;
 	case VK_END:
-	  return LV_VK_END;
+	  continue;
       }
-#endif
-      int aChar = ir.Event.KeyEvent.uChar.AsciiChar;
+      aChar = ir.Event.KeyEvent.uChar.AsciiChar;
       if (aChar > 0)
 	return aChar & 0xff;
     }
