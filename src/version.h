@@ -9,6 +9,9 @@
 #define __VERSION_H__
 
 #define VERSION		"v.4.51 (Jan.16th,2004)"
+#ifdef WIN32NATIVE
+#define WIN32N_VERSION	"+001 (Oct.27th,2011)"
+#endif
 
 public void Banner();
 
