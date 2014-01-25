@@ -69,6 +69,12 @@ private HANDLE hStdout;
 private DWORD oldConsoleMode, newConsoleMode;
 private CONSOLE_CURSOR_INFO oldCursorInfo;
 private BOOL bStdinIsConsole;
+typedef struct _console_buf_saved {
+  CONSOLE_SCREEN_BUFFER_INFO csbi;
+  PCHAR_INFO                 buffer;
+  BOOL                       valid;
+} CONSOLE_BUF_SAVED;
+private CONSOLE_BUF_SAVED old_console_buf;
 #endif
 
 #if (defined( MSDOS ) || defined( WIN32 )) && !defined(WIN32NATIVE)
@@ -144,6 +150,49 @@ private char *exit_ca_mode		= NULL;
 private char *keypad_local		= NULL;
 private char *keypad_xmit		= NULL;
 #endif /* TERMCAP */
+
+#ifdef WIN32NATIVE
+private void
+SaveConsoleBuffer(CONSOLE_BUF_SAVED *save) 
+{
+  int        size;
+  COORD      pos;
+  SMALL_RECT region;
+ 
+  pos.X = pos.Y = 0;
+  GetConsoleScreenBufferInfo(hStdout, &save->csbi);
+  size = save->csbi.dwSize.X * save->csbi.dwSize.Y;
+  save->buffer = (PCHAR_INFO)malloc(size * sizeof(CHAR_INFO));
+  region.Top = 0;
+  region.Bottom = save->csbi.srWindow.Bottom;
+  region.Left = 0;
+  region.Right = save->csbi.dwSize.X - 1;
+  ReadConsoleOutput(hStdout, save->buffer, save->csbi.dwSize, pos, &region);
+  save->valid = TRUE;
+}
+
+private void
+RestoreConsoleBuffer(CONSOLE_BUF_SAVED *save) 
+{
+  if (save->valid) {
+    COORD      pos;
+    SMALL_RECT region;
+    pos.X = pos.Y = 0;
+    region.Top = 0;
+    region.Bottom = save->csbi.srWindow.Bottom;
+    region.Left = 0;
+    region.Right = save->csbi.dwSize.X - 1;
+    SetConsoleScreenBufferSize(hStdout, save->csbi.dwSize);
+    WriteConsoleOutput(hStdout, save->buffer, save->csbi.dwSize, pos, &region);
+    SetConsoleCursorPosition(hStdout, save->csbi.dwCursorPosition);
+    SetConsoleWindowInfo(hStdout, TRUE, &save->csbi.srWindow);
+    SetConsoleTextAttribute(hStdout, save->csbi.wAttributes);
+    free(save->buffer);
+    save->valid = FALSE;
+  }
+}
+
+#endif /* WIN32NATIVE */
 
 public void ConsoleInit()
 {
@@ -453,7 +502,13 @@ public void ConsoleSetUp()
 			ENABLE_QUICK_EDIT_MODE);
     SetConsoleMode(hStdin, newConsoleMode);
   }
-  GetConsoleCursorInfo(hStdout, &oldCursorInfo);
+  if (GetConsoleCursorInfo(hStdout, &oldCursorInfo)) {
+    COORD size;
+    size.X = WIDTH;
+    size.Y = HEIGHT;
+    SaveConsoleBuffer(&old_console_buf);
+    SetConsoleScreenBufferSize(hStdout, size);
+  }
 #endif /* WIN32NATIVE */
 
 #ifdef HAVE_SIGVEC
@@ -516,11 +571,9 @@ public void ConsoleSetDown()
 #endif /* UNIX */
 
 #ifdef WIN32NATIVE
-  ConsoleSetCur( 0, HEIGHT - 1 );
-  ConsolePrint( CR );
-  ConsolePrint( LF );
   SetConsoleMode(hStdin, oldConsoleMode);
   SetConsoleCursorInfo(hStdout, &oldCursorInfo);
+  RestoreConsoleBuffer(&old_console_buf);
 #else /* !WIN32NATIVE */
   if( keypad_local )
     tputs( keypad_local, 1, putfunc );
@@ -636,15 +689,27 @@ public int ConsolePrint( byte c )
 */
 #endif /* MSDOS */
 
-#if defined(UNIX) || defined(WIN32NATIVE)
+#ifdef WIN32NATIVE
+  DWORD wsize;
+  WriteFile(hStdout, &c, 1, &wsize, NULL);
+  return wsize == 1;
+#endif /* WIN32NATIVE */
+
+#ifdef UNIX
   return putchar( c );
-#endif /* UNIX || WIN32NATIVE */
+#endif /* UNIX */
 }
 
 public void ConsolePrints( byte *str )
 {
+#ifdef WIN32NATIVE
+  DWORD size;
+  size = strlen(str);
+  WriteFile(hStdout, str, size, &size, NULL);
+#else /* !WIN32NATIVE */
   while( *str )
     ConsolePrint( *str++ );
+#endif
 }
 
 public void ConsolePrintsStr( str_t *str, int length )
@@ -666,7 +731,7 @@ public void ConsolePrintsStr( str_t *str, int length )
 
 public void ConsoleFlush()
 {
-#if defined(UNIX) || defined(WIN32NATIVE)
+#ifdef UNIX
   fflush( stdout );
 #endif /* UNIX || WIN32NATIVE */
 }
