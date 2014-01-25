@@ -353,12 +353,12 @@ public void DecodeUTF16( state_t *state, byte codingSystem )
       GetChar( ch1 );
       uni = (ic_t)((ch1 << 8) | ch2);
       if (uni == UNICODE_BOM) {
-	codingSystem = UTF16LE;
+	codingSystem = UTF_16LE;
 	continue;
       } 
       uni = (ic_t)((ch2 << 8) | ch1);
       if (uni == UNICODE_BOM) {
-	codingSystem = UTF16BE;
+	codingSystem = UTF_16BE;
 	continue;
       } 
       /* fallthru assume UTF_16LE */
@@ -428,4 +428,4 @@ public void EncodeUTF16( i_str_t *istr, int head, int tail,
     }
   }
 }
-#endf /* USE_UTF16 */
+#endif /* USE_UTF16 */

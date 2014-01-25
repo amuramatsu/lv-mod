@@ -15,4 +15,8 @@
 
 #define byte	unsigned char
 
+#ifndef MSDOS
+#define USE_UTF16
+#endif
+
 #endif /* __IMPORT_H__ */

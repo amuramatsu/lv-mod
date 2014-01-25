@@ -74,13 +74,18 @@ static int isUTF8( byte *str, int length )
 #ifdef USE_UTF16
 private int isUTF16( byte *str, int length )
 {
+  int i;
+  byte ch1, ch2;
+ 
   if (length < 2)
     return 0;
+  
   /* check BOM */
   if (str[0] == 0xfe && str[1] == 0xff)
     return UTF_16BE;
   if (str[0] == 0xff && str[1] == 0xfe)
     return UTF_16LE;
+  
   return 0;
 }
 #endif /* USE_UTF16 */

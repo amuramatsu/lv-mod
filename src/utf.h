@@ -21,4 +21,12 @@ public void EncodeUTF7( i_str_t *istr, int head, int tail,
 public void EncodeUTF8( i_str_t *istr, int head, int tail,
 		       byte codingSystem, boolean_t binary );
 
+#ifdef USE_UTF16
+public void DecodeUTF16( state_t *state, byte codingSystem );
+
+public void EncodeUTF16( i_str_t *istr, int head, int tail,
+			byte codingSystem, boolean_t binary );
+#define	UNICODE_BOM	((ic_t)0xfeff)
+#endif
+
 #endif /* __UTF_H__ */
