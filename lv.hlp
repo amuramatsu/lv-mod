@@ -9,7 +9,7 @@ SSYYNNOOPPSSIISS
        llvv,, llggrreepp
        llvv -h
        llvv -V
-       llvv [-acdfgiklmnqsuvz] [+acdfgiklmnqsuvz]
+       llvv [-acdfgiklmnqstuvwz] [+acdfgiklmnqstuvwz]
             [-A_c_o_d_i_n_g_-_s_y_s_t_e_m] [-I_c_o_d_i_n_g_-_s_y_s_t_e_m] [-K_c_o_d_i_n_g_-_s_y_s_t_e_m]
             [-O_c_o_d_i_n_g_-_s_y_s_t_e_m] [-P_c_o_d_i_n_g_-_s_y_s_t_e_m] [-D_c_o_d_i_n_g_-_s_y_s_t_e_m]
             [-Ss_s_e_q] [-Sr_s_e_q] [-Sb_s_e_q] [-Su_s_e_q] [-Sh_s_e_q]
@@ -45,12 +45,12 @@ DDEESSCCRRIIPPTTIIOONN
 
        _S_u_p_p_o_r_t_i_n_g _t_h_e _U_n_i_c_o_d_e _s_t_a_n_d_a_r_d
               lv provides Unicode facilities which enables you to handle
-              Unicode streams encoded in UTF-7 or UTF-8, and lv can also
-              convert their code-points between Unicode and other charsets.
-              So you can display Unicode or foreign texts on your terminal,
-              using the code conversion function to your favorite charsets via
-              Unicode.  (However, MSDOS version of lv has none of the Unicode
-              facility.)
+              Unicode streams encoded in UTF-7, UTF-8 or UTF-16, and lv can
+              also convert their code-points between Unicode and other
+              charsets.  So you can display Unicode or foreign texts on your
+              terminal, using the code conversion function to your favorite
+              charsets via Unicode.  (However, MSDOS version of lv has none of
+              the Unicode facility.)
 
        _A_N_S_I _e_s_c_a_p_e _s_e_q_u_e_n_c_e _t_h_r_o_u_g_h
               lv can recognize ANSI escape sequences for text decoration.  So
@@ -99,8 +99,8 @@ OOPPTTIIOONNSS
               s: shift-jis
               b: big5
               h: HZ
-              wa: utf-16
-              wb,wl: utf-16be,le
+              wa: UTF-16
+              wb,wl: UTF-16BE,LE
               r: raw mode
 
        Examples:
@@ -188,6 +188,8 @@ OOPPTTIIOONNSS
 
        -s     Force old pages to be swept out from the screen Smoothly
 
+       -t     Less keybind compaTible mode.
+
        -u     Unify several character sets, eg. JIS X0208 and C6226.  In
               addition, lv equates ISO 646 variants, eg. JIS X0201-Roman, and
               unknown charsets with ASCII.
@@ -198,6 +200,9 @@ OOPPTTIIOONNSS
               file on lgrep.
 
        -v     Invert the sense of matching on lgrep.
+
+       -w     Compressed files are opened directly With zcat, bzcat, lzcat or
+              xzcat.
 
        -z     Enable HZ auto-detection (also enabled by run-time C-t).
 
@@ -349,4 +354,4 @@ BBUUGG RREEPPOORRTT
 
 
 
-                 v.4.51 (Jan.16th,2004) [+004 (Apr.11st,2013)]           LV(1)
+                 v.4.51 (Jan.16th,2004) [+005 (Apr.13rd,2013)]           LV(1)

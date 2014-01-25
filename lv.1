@@ -1,4 +1,4 @@
-.TH LV 1 "v.4.51 (Jan.16th,2004) [+004 (Apr.11st,2013)]"
+.TH LV 1 "v.4.51 (Jan.16th,2004) [+005 (Apr.13rd,2013)]"
 .SH NAME
 lv \- a Powerful Multilingual File Viewer / Grep
 .SH SYNOPSIS
@@ -11,7 +11,7 @@ lv \- a Powerful Multilingual File Viewer / Grep
 -V
 .br
 .B lv
-[-acdfgiklmnqsuvz] [+acdfgiklmnqsuvz]
+[-acdfgiklmnqstuvwz] [+acdfgiklmnqstuvwz]
 .br
      [-A\fIcoding-system\fP] [-I\fIcoding-system\fP] [-K\fIcoding-system\fP]
 .br
@@ -55,7 +55,7 @@ so an EUC fragment, for example,
 can be found in the ISO 2022 tailored streams, of course.
 .IP "\fISupporting the Unicode standard\fP"
 lv provides Unicode facilities
-which enables you to handle Unicode streams encoded in UTF-7 or UTF-8,
+which enables you to handle Unicode streams encoded in UTF-7, UTF-8 or UTF-16,
 and lv can also convert their code-points
 between Unicode and other charsets.
 So you can display Unicode or foreign texts on your terminal,
@@ -118,9 +118,9 @@ b: big5
 .br
 h: HZ
 .br
-wa: utf-16
+wa: UTF-16
 .br
-wb,wl: utf-16be,le
+wb,wl: UTF-16BE,LE
 .br
 r: raw mode
 .IP "Examples:"
@@ -208,6 +208,8 @@ Allow physical lines of each logical line printed on the screen
 to be concatenated for cut and paste after screen refresh
 .IP "-s"
 Force old pages to be swept out from the screen Smoothly
+.IP "-t"
+Less keybind compaTible mode.
 .IP "-u"
 Unify several character sets, eg. JIS X0208 and C6226.
 In addition, lv equates ISO 646 variants,
@@ -219,6 +221,8 @@ Turn on lgrep mode.
 Prefix each line of output with the line number within its input file on lgrep.
 .IP "-v"
 Invert the sense of matching on lgrep.
+.IP "-w"
+Compressed files are opened directly With zcat, bzcat, lzcat or xzcat.
 .IP "-z"
 Enable HZ auto-detection (also enabled by run-time C-t).
 .br
