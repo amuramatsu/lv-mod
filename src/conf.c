@@ -410,6 +410,13 @@ public void Conf( conf_t *conf, byte **argv )
     strcat( buf, "/" LV_CONF );
     ConfFile( conf, buf );
   }
+#ifdef WIN32NATIVE
+  else if( NULL != (ptr = getenv( "USERPROFILE" )) ){
+    strcpy( buf, ptr );
+    strcat( buf, "/" LV_CONF );
+    ConfFile( conf, buf );
+  }
+#endif /* WIN32NATIVE */
 
 #if defined(MSDOS) || defined(WIN32NATIVE)
   ConfFile( conf, LV_CONF );
