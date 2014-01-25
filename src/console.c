@@ -215,7 +215,7 @@ RestoreConsoleBuffer(CONSOLE_BUF_SAVED *save)
 
 private WORD Win32Attribute( byte attr )
 {
-  WORD w;
+  WORD w = 0;
   if (attr == 0 || ATTR_STANDOUT & attr) {
     w = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
   }
