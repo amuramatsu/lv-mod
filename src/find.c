@@ -22,9 +22,9 @@
 
 #include <stdlib.h>
 
-#if defined(MSDOS) || defined(WIN32)
+#if defined(MSDOS) || defined(WIN32NATIVE)
 #include <dos.h>
-#endif /* MSDOS || WIN32 */
+#endif /* MSDOS || WIN32NATIVE */
 
 #include <import.h>
 #include <fetch.h>

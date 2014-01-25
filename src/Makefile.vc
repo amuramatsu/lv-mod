@@ -5,7 +5,7 @@
 
 # MSDOS
 CC = cl
-CFLAGS = -O2 -I. -DWIN32 -DRETSIGTYPE=void 
+CFLAGS = -O2 -I. -DWIN32NATIVE -DRETSIGTYPE=void 
 LIB = -m
 
 ########################################################################

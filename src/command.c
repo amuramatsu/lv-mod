@@ -25,9 +25,9 @@
 #include <string.h>
 #include <errno.h>
 
-#if defined(MSDOS) || defined(WIN32)
+#if defined(MSDOS) || defined(WIN32NATIVE)
 #include <dos.h>
-#endif /* MSDOS || WIN32 */
+#endif /* MSDOS || WIN32NATIVE */
 
 #ifdef UNIX
 #include <unistd.h>
@@ -457,9 +457,9 @@ private void CommandQuit( unsigned int arg )
 
 private void CommandShellEscape( unsigned int arg )
 {
-#if defined(MSDOS) || defined(WIN32)
+#if defined(MSDOS) || defined(WIN32NATIVE)
   byte *shell;
-#endif /* MSDOS || WIN32 */
+#endif /* MSDOS || WIN32NATIVE */
 
   ConsoleShellEscape();
 
@@ -467,7 +467,7 @@ private void CommandShellEscape( unsigned int arg )
   FileRefresh( f );
   IstrFreeAll();
 
-#if defined(MSDOS) || defined(WIN32)
+#if defined(MSDOS) || defined(WIN32NATIVE)
   if( shell = getenv( "SHELL" ) )
     spawnlp( 0, shell, shell, NULL );
   else if( shell = getenv( "COMSPEC" ) )
@@ -554,9 +554,9 @@ private int CommandLaunchEditor( byte *editor, byte *filename, int line )
   byte *ptr, *nptr, *argv[ ARG_SIZE ];
   byte com[ COM_SIZE ];
   byte num[ COM_SIZE ];
-#if !(defined(MSDOS) || defined(WIN32)) /* NOT DEFINED */
+#if !(defined(MSDOS) || defined(WIN32NATIVE)) /* NOT DEFINED */
   int pid, status;
-#endif /* !(MSDOS  || WIN32) */
+#endif /* !(MSDOS  || WIN32NATIVE) */
 
   if( strlen( editor ) + strlen( filename ) + 2 > COM_SIZE )
     return 1;
@@ -595,7 +595,7 @@ private int CommandLaunchEditor( byte *editor, byte *filename, int line )
   }
 #endif /* NOT */
 
-#if defined(MSDOS) || defined(WIN32)
+#if defined(MSDOS) || defined(WIN32NATIVE)
   return spawnvp( 0, argv[ 0 ], argv );
 #else
   if( 0 == (pid = fork()) ){
@@ -610,7 +610,7 @@ private int CommandLaunchEditor( byte *editor, byte *filename, int line )
     } while (rv == -1 && errno == EINTR);
     return status;
   }
-#endif /* MSDOS || WIN32 */
+#endif /* MSDOS || WIN32NATIVE */
 }
 
 private void CommandEdit( unsigned int arg )

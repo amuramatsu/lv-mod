@@ -28,9 +28,9 @@
 #include <unistd.h>
 #endif /* UNIX */
 
-#if defined(MSDOS) || defined(WIN32)
+#if defined(MSDOS) || defined(WIN32NATIVE)
 #include <dos.h>
-#endif /* MSDOS || WIN32 */
+#endif /* MSDOS || WIN32NATIVE */
 
 #include <import.h>
 #include <itable.h>
@@ -210,10 +210,10 @@ public boolean_t IsAtty( int fd )
      */
     return FALSE;
   }
-#elif defined(WIN32)
+#elif defined(WIN32NATIVE)
   #warn "XXX implement ME"
   return TRUE;
-#else /* ! (MSDOS || WIN32) */
+#else /* ! (MSDOS || WIN32NATIVE) */
   if( isatty( fd ) )
     return TRUE;
   else

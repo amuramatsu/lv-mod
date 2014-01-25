@@ -50,7 +50,7 @@ public byte LocaleCodingSystem( char *language )
 #ifdef MSDOS
   strcpy( language, "ja_JP" );
   return SHIFT_JIS;
-#elif defined(WIN32)
+#elif defined(WIN32NATIVE)
 #warning "XXX PLEASE IMPLEMENT LocaleCodingSystem()."
   strcpy( language, "ja_JP" );
   return SHIFT_JIS;

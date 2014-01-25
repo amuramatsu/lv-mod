@@ -24,9 +24,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(MSDOS) || defined(WIN32)
+#if defined(MSDOS) || defined(WIN32NATIVE)
 #include <dos.h>
-#endif /* MSDOS || WIN32 */
+#endif /* MSDOS || WIN32NATIVE */
 
 #ifdef UNIX
 #include <unistd.h>
