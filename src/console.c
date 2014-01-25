@@ -31,6 +31,7 @@
 
 #ifdef WIN32NATIVE
 #include <windows.h>
+#include <tchar.h>
 #include <fcntl.h>
 #include "getch_msvc.h"
 #endif /* WIN32NATIVE */
@@ -68,10 +69,10 @@
 private HANDLE hStdin;
 private HANDLE hStdout;
 private DWORD oldConsoleMode, newConsoleMode;
-private CONSOLE_CURSOR_INFO oldCursorInfo;
 private BOOL bStdinIsConsole;
 typedef struct _console_buf_saved {
   CONSOLE_SCREEN_BUFFER_INFO csbi;
+  CONSOLE_CURSOR_INFO        cci;
   PCHAR_INFO                 buffer;
   BOOL                       valid;
 } CONSOLE_BUF_SAVED;
@@ -156,14 +157,34 @@ private char *keypad_xmit		= NULL;
 
 #ifdef WIN32NATIVE
 private void
+pWinError(const char *str)
+{
+  LPVOID     lpMsgBuf;
+  FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
+		FORMAT_MESSAGE_FROM_SYSTEM |
+		FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL, GetLastError(),
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPTSTR) &lpMsgBuf, 0, NULL);
+  fprintf(stderr, "%s %s", str, (const char *)lpMsgBuf);
+  LocalFree(lpMsgBuf);
+}
+
+private void
 SaveConsoleBuffer(CONSOLE_BUF_SAVED *save) 
 {
   int        size;
   COORD      pos;
   SMALL_RECT region;
   int        Y, incr;
- 
-  GetConsoleScreenBufferInfo(hStdout, &save->csbi);
+
+  SetLastError(NO_ERROR);
+  if (! GetConsoleScreenBufferInfo(hStdout, &save->csbi)) {
+    pWinError("SaveConsoleBuffer()"); return;
+  }
+  if (! GetConsoleCursorInfo(hStdout, &save->cci)) {
+    pWinError("SaveConsoleBuffer()"); return;
+  }
   size = save->csbi.dwSize.X * save->csbi.dwSize.Y;
   save->buffer = (PCHAR_INFO)Malloc(size * sizeof(CHAR_INFO));
   pos.X = 0;
@@ -177,9 +198,10 @@ SaveConsoleBuffer(CONSOLE_BUF_SAVED *save)
     pos.Y = Y;
     /*
      * Read the region whose top left corner is (0, Y) and whose bottom
-     * right corner is (width - 1, Y + Y_incr - 1).  This should define
-     * a region of size width by Y_incr.  Don't worry if this region is
+     * right corner is (width - 1, Y + incr - 1).  This should define
+     * a region of size width by incr.  Don't worry if this region is
      * too large for the remaining buffer; it will be cropped.
+     * This code based on Vim 7.2
      */
     region.Top = Y;
     region.Bottom = Y + incr - 1;
@@ -187,6 +209,7 @@ SaveConsoleBuffer(CONSOLE_BUF_SAVED *save)
  			   pos, &region)) {
       free(save->buffer);
       save->buffer = NULL;
+      pWinError("SaveConsoleBuffer()");
       return;
     }
   }
@@ -203,11 +226,17 @@ RestoreConsoleBuffer(CONSOLE_BUF_SAVED *save)
     region.Top = region.Left = 0;
     region.Bottom = save->csbi.dwSize.Y - 1;
     region.Right = save->csbi.dwSize.X - 1;
-    SetConsoleScreenBufferSize(hStdout, save->csbi.dwSize);
-    SetConsoleWindowInfo(hStdout, TRUE, &save->csbi.srWindow);
-    SetConsoleCursorPosition(hStdout, save->csbi.dwCursorPosition);
-    SetConsoleTextAttribute(hStdout, save->csbi.wAttributes);
-    WriteConsoleOutput(hStdout, save->buffer, save->csbi.dwSize, pos, &region);
+    if (! SetConsoleScreenBufferSize(hStdout, save->csbi.dwSize))
+      pWinError("RestoreConsoleBuffer()");
+    if (!SetConsoleWindowInfo(hStdout, TRUE, &save->csbi.srWindow))
+      pWinError("RestoreConsoleBuffer()");
+    if (!SetConsoleCursorPosition(hStdout, save->csbi.dwCursorPosition))
+      pWinError("RestoreConsoleBuffer()");
+    if (!SetConsoleTextAttribute(hStdout, save->csbi.wAttributes))
+      pWinError("RestoreConsoleBuffer()");
+    if (! WriteConsoleOutput(hStdout, save->buffer, save->csbi.dwSize,
+			     pos, &region))
+      pWinError("RestoreConsoleBuffer()");
     free(save->buffer);
     save->valid = FALSE;
   }
@@ -216,10 +245,12 @@ RestoreConsoleBuffer(CONSOLE_BUF_SAVED *save)
 private WORD Win32Attribute( byte attr )
 {
   WORD w = 0;
-  if (attr == 0 || ATTR_STANDOUT & attr) {
+  if (attr == 0)
     w = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
-  }
+  else if (ATTR_STANDOUT & attr)
+    w = BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE;
   else if (ATTR_REVERSE & attr) {
+    w |= BACKGROUND_INTENSITY;
     if (ATTR_COLOR_R & attr)
       w |= BACKGROUND_RED;
     if (ATTR_COLOR_G & attr)
@@ -241,9 +272,9 @@ private WORD Win32Attribute( byte attr )
     if (ATTR_COLOR_B & attr)
       w |= FOREGROUND_BLUE;
     if (ATTR_BLINK & attr)
-      w |= BACKGROUND_RED | FOREGROUND_INTENSITY;
+	w |= BACKGROUND_RED | FOREGROUND_INTENSITY;
     if (ATTR_UNDERLINE & attr)
-      w |= BACKGROUND_BLUE | FOREGROUND_INTENSITY;
+	w |= BACKGROUND_BLUE | FOREGROUND_INTENSITY;
     if (ATTR_HILIGHT & attr)
       w |= FOREGROUND_INTENSITY;
   }
@@ -349,7 +380,7 @@ public void ConsoleGetWindowSize()
   }
   if (charbuf) free(charbuf);
   if (attrbuf) free(attrbuf);
-  charbuf = (unsigned char *)Malloc(sizeof(unsigned char) * WIDTH);
+  charbuf = (unsigned char *)Malloc(sizeof(TCHAR) * WIDTH);
   attrbuf = (WORD *)Malloc(sizeof(WORD) * WIDTH);
 #endif /* WIN32NATIVE */
 
@@ -553,6 +584,7 @@ public void ConsoleSetUp()
   setvbuf(stdin, NULL, _IONBF, 0);
   setmode(fileno(stdin), O_BINARY);
   if (GetConsoleMode(hStdin, &oldConsoleMode)) {
+    COORD size;
     /* Win32コンソールの場合は念のためダイレクトモードに設定 */
     bStdinIsConsole = TRUE;
     newConsoleMode = oldConsoleMode;
@@ -562,12 +594,8 @@ public void ConsoleSetUp()
 			ENABLE_INSERT_MODE |
 			ENABLE_QUICK_EDIT_MODE);
     SetConsoleMode(hStdin, newConsoleMode);
-  }
-  if (GetConsoleCursorInfo(hStdout, &oldCursorInfo)) {
-    COORD size;
-    size.X = WIDTH;
-    size.Y = HEIGHT;
     SaveConsoleBuffer(&old_console_buf);
+    size.X = WIDTH; size.Y = HEIGHT;
     SetConsoleScreenBufferSize(hStdout, size);
   }
 #endif /* WIN32NATIVE */
@@ -649,7 +677,6 @@ public void ConsoleSetDown()
 
 #ifdef WIN32NATIVE
   SetConsoleMode(hStdin, oldConsoleMode);
-  SetConsoleCursorInfo(hStdout, &oldCursorInfo);
   RestoreConsoleBuffer(&old_console_buf);
 #else /* !WIN32NATIVE */
   if( keypad_local )
@@ -676,8 +703,7 @@ public void ConsoleShellEscape()
 
 #ifdef WIN32NATIVE
   SetConsoleMode(hStdin, oldConsoleMode);
-  SetConsoleCursorInfo(hStdout, &oldCursorInfo);
-  ConsoleSetCur( 0, HEIGHT - 1 );
+  RestoreConsoleBuffer(&old_console_buf);
 #else /* !WIN32NATIVE */
   if( keypad_local )
     tputs( keypad_local, 1, putfunc );
@@ -722,14 +748,14 @@ public int ConsoleGetChar()
 #ifdef WIN32NATIVE
   int c;
   if (bStdinIsConsole) {
-      c = getch_replacement_for_msvc();
+    c = getch_replacement_for_msvc();
   } else {
-      /* stdin がリダイレクトされている場合（わりと適当） */
-      c = fgetc(stdin);
-      if (c == '\n') c = '\r';
-      if (c == EOF) return EOF;
+    /* stdin がリダイレクトされている場合（わりと適当） */
+    c = fgetc(stdin);
+    if (c == '\n') c = '\r';
+    if (c == EOF) return EOF;
   }
-  return c & 255;
+  return c & 0xff;
 #endif /* WIN32NATIVE */
 
 #ifdef MSDOS
@@ -767,9 +793,22 @@ public int ConsolePrint( byte c )
 #endif /* MSDOS */
 
 #ifdef WIN32NATIVE
+# ifdef _UNICODE
+  static byte cbuf[2];
   DWORD wsize;
-  WriteFile(hStdout, &c, 1, &wsize, NULL);
+  if (cbuf[0]) {
+    cbuf[1] = ch;
+    WriteConsole(hStdout, &cbuf, 1, &wsize, NULL);
+    cbuf[0] = 0;
+    return wsize == 1;
+  }
+  cbuf[0] = c;
+  return TRUE;
+# else /* ! _UNICODE */
+  DWORD wsize;
+  WriteConsole(hStdout, &c, 1, &wsize, NULL);
   return wsize == 1;
+# endif /* UNICODE */
 #endif /* WIN32NATIVE */
 
 #ifdef UNIX
@@ -807,10 +846,10 @@ public void ConsolePrintsStr( str_t *str, int length )
 #if 0
     if (str[i] & 0xff == LF) {
       if (cp != charbuf) {
-	WriteConsoleOutputCharacter(hStdout, charbuf, cp-charbuf, curpos,
-				    &written);
-	WriteConsoleOutputAttribute(hStdout, attrbuf, ap-attrbuf, curpos,
-				    &written);
+	WriteConsoleOutputCharacter(hStdout, (LPCTSTR)charbuf, cp-charbuf,
+				    curpos, &written);
+	WriteConsoleOutputAttribute(hStdout, attrbuf, ap-attrbuf,
+				    curpos, &written);
 	cp = charbuf; ap = attrbuf;
 	curpos.X += written;
 	while (curpos.X >= WIDTH) {
@@ -823,13 +862,22 @@ public void ConsolePrintsStr( str_t *str, int length )
     else
 #endif
     {
+#ifdef _UNICODE
+      if ((i % 2) == 1) {
+	*cp++ = ((str[i] & 0xff) << 8) | (str[i-1] & 0xff);
+	*ap++ = Win32Attribute((str[i-1] & 0xff00) >> 8);
+      }
+#else /* !_UNICODE */
       *cp++ = str[i] & 0xff;
       *ap++ = Win32Attribute((str[i] & 0xff00) >> 8);
+#endif /* _UNICODE */
     }
   }
   if (cp != charbuf) {
-    WriteConsoleOutputCharacter(hStdout, charbuf, cp-charbuf, curpos, &written);
-    WriteConsoleOutputAttribute(hStdout, attrbuf, ap-attrbuf, curpos, &written);
+    WriteConsoleOutputCharacter(hStdout, (LPCTSTR)charbuf, cp-charbuf,
+				curpos, &written);
+    WriteConsoleOutputAttribute(hStdout, attrbuf, ap-attrbuf,
+				curpos, &written);
     curpos.X += written;
     while (curpos.X >= WIDTH) {
       curpos.X -= WIDTH; curpos.Y++;
@@ -865,8 +913,7 @@ public void ConsoleSetCur( int x, int y )
 {
 #ifdef WIN32NATIVE
   COORD pos;
-  pos.X = x;
-  pos.Y = y;
+  pos.X = x; pos.Y = y;
   SetConsoleCursorPosition(hStdout, pos);
 #endif /* WIN32NATIVE */
 
@@ -920,25 +967,17 @@ public void ConsoleClearScreen()
   DWORD                       dwConsoleSize;
   CONSOLE_SCREEN_BUFFER_INFO  csbi;
 
-  coordScreen.X = 0;
-  coordScreen.Y = 0;
+  coordScreen.X = coordScreen.Y = 0; /* set HOME position */
   
   /* コンソールのキャラクタバッファ情報を取得 */
-  if (GetConsoleScreenBufferInfo(hStdout, &csbi) == FALSE)
-    return;
-
+  if (!GetConsoleScreenBufferInfo(hStdout, &csbi))
+    pWinError("ConsoleClearScreen()"), exit(-1);
   /* キャラクタバッファサイズを計算 */
   dwConsoleSize = csbi.dwSize.X * csbi.dwSize.Y;
-
-  /* キャラクタバッファを空白で埋める */
+  
+  /* fill space & attribute */
   FillConsoleOutputCharacter(
-    hStdout, ' ', dwConsoleSize, coordScreen, &dwCharsWritten);
-
-  /* 現在のテキスト属性の取得 */
-  if (GetConsoleScreenBufferInfo(hStdout, &csbi) == FALSE)
-    return;
-
-  /* すべての文字に対して取得したテキスト属性を適用する */
+    hStdout, _T(' '), dwConsoleSize, coordScreen, &dwCharsWritten);
   FillConsoleOutputAttribute(
     hStdout, csbi.wAttributes, dwConsoleSize, coordScreen, &dwCharsWritten);
 
@@ -958,27 +997,21 @@ public void ConsoleClearRight()
   CONSOLE_SCREEN_BUFFER_INFO  csbi;
 
   /* コンソールのキャラクタバッファ情報を取得 */
-  if (GetConsoleScreenBufferInfo(hStdout, &csbi) == FALSE)
-    return;
-  coordScreen = csbi.dwCursorPosition;
+  if (!GetConsoleScreenBufferInfo(hStdout, &csbi))
+    pWinError("ConsoleClearRight()"), exit(-1);
 
+  coordScreen = csbi.dwCursorPosition;
   /* キャラクタバッファサイズを計算 */
   dwConsoleSize = csbi.dwSize.X - coordScreen.X;
 
-  /* キャラクタバッファを空白で埋める */
+  /* fill char & attribute */
   FillConsoleOutputCharacter(
-    hStdout, ' ', dwConsoleSize, coordScreen, &dwCharsWritten);
-
-  /* 現在のテキスト属性の取得 */
-  if (GetConsoleScreenBufferInfo(hStdout, &csbi) == FALSE)
-    return;
-
-  /* すべての文字に対して取得したテキスト属性を適用する */
+    hStdout, _T(' '), dwConsoleSize, coordScreen, &dwCharsWritten);
   FillConsoleOutputAttribute(
     hStdout, csbi.wAttributes, dwConsoleSize, coordScreen, &dwCharsWritten);
 
   /* カーソル位置をもとに戻す */
-  SetConsoleCursorPosition(hStdout, coordScreen);
+  //SetConsoleCursorPosition(hStdout, coordScreen);
 #else
   tputs( clr_eol, 1, putfunc );
 #endif
@@ -996,13 +1029,19 @@ public void ConsoleScrollUp()
   SMALL_RECT                 region;
   COORD                      dest;
   CHAR_INFO                  fill;
-  GetConsoleScreenBufferInfo(hStdout, &csbi);
-  fill.Char.AsciiChar = ' ';
+  if (!GetConsoleScreenBufferInfo(hStdout, &csbi))
+    pWinError("ConsoleScrollUp()"), exit(-1);
+#ifdef _UNICODE
+  fill.Char.UnicodeChar = _T(' ');
+#else
+  fill.Char.AsciiChar = _T(' ');
+#endif
   fill.Attributes = csbi.wAttributes;
   region = csbi.srWindow;
   dest = csbi.dwCursorPosition;
   region.Top = dest.Y + 1;
-  ScrollConsoleScreenBuffer(hStdout, &region, NULL, dest, &fill);
+  if (!ScrollConsoleScreenBuffer(hStdout, &region, NULL, dest, &fill))
+    pWinError("ConsoleScrollUp()"), exit(-1);
 #else
   if( delete_line )
     tputs( delete_line, 1, putfunc );
@@ -1016,13 +1055,19 @@ public void ConsoleScrollDown()
   SMALL_RECT                 region;
   COORD                      dest;
   CHAR_INFO                  fill;
-  GetConsoleScreenBufferInfo(hStdout, &csbi);
-  fill.Char.AsciiChar = ' ';
+  if (!GetConsoleScreenBufferInfo(hStdout, &csbi))
+    pWinError("ConsoleScrollDown()"), exit(-1);
+#ifdef _UNICODE
+  fill.Char.UnicodeChar = _T(' ');
+#else
+  fill.Char.AsciiChar = _T(' ');
+#endif
   fill.Attributes = csbi.wAttributes;
   region = csbi.srWindow;
   dest = csbi.dwCursorPosition;
   dest.Y += 1;
-  ScrollConsoleScreenBuffer(hStdout, &region, NULL, dest, &fill);
+  if (!ScrollConsoleScreenBuffer(hStdout, &region, NULL, dest, &fill))
+    pWinError("ConsoleScrollDown()"), exit(-1);
 #else
   if( insert_line )
     tputs( insert_line, 1, putfunc );
