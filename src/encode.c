@@ -78,7 +78,7 @@ private encode_table_t encodeTable[ C_TABLE_SIZE ] = {
   EncodeISO2022kr,		/* ISO_2022_KR */
 #ifdef USE_UTF16
   EncodeRaw,			/* RAW */
-  EncodeUTF16,			/* UTF16 (same of UTF16LE) */
+  EncodeUTF16,			/* UTF16 (same of UTF16BE) */
   EncodeUTF16,			/* UTF16LE */
   EncodeUTF16			/* UTF16BE */
 #else 
@@ -129,50 +129,50 @@ public boolean_t EncodeAddPseudo( int attr, ic_t ic, byte cset,
 
 #ifdef USE_UTF16
 public boolean_t EncodeAddPseudo16( int attr, ic_t ic, byte cset,
-				   boolean_t binary, boolean_t be )
+				   boolean_t binary, boolean_t le )
 {
   int i;
   byte c;
 
   if( LINE_FEED == cset ){
-    if (!be) EncodeAddCharRet( attr, 0 );
+    if (!le) EncodeAddCharRet( attr, 0 );
     EncodeAddCharRet( attr, LF );
-    if (be) EncodeAddCharRet( attr, 0 );
+    if (le) EncodeAddCharRet( attr, 0 );
   }else if( SPACE == cset ){
-    if (!be) EncodeAddCharRet( attr, 0 );
+    if (!le) EncodeAddCharRet( attr, 0 );
     EncodeAddCharRet( attr, SP );
-    if (be) EncodeAddCharRet( attr, 0 );
+    if (le) EncodeAddCharRet( attr, 0 );
   } else if( HTAB == cset ){
     if( TRUE == binary ){
-      if (!be) EncodeAddCharRet( attr, 0 );
+      if (!le) EncodeAddCharRet( attr, 0 );
       EncodeAddCharRet( attr, HT );
-      if (be) EncodeAddCharRet( attr, 0 );
+      if (le) EncodeAddCharRet( attr, 0 );
     } else {
       for( i = 0 ; i < MakeByte1( ic ) ; i++ ) {
-	if (!be) EncodeAddCharRet( attr, 0 );
+	if (!le) EncodeAddCharRet( attr, 0 );
 	EncodeAddCharRet( attr, ' ' );
-	if (be) EncodeAddCharRet( attr, 0 );
+	if (le) EncodeAddCharRet( attr, 0 );
       }
     }
   } else if( CNTRL == cset ){
     if( TRUE == binary ){
-      if (!be) EncodeAddCharRet( attr, 0 );
+      if (!le) EncodeAddCharRet( attr, 0 );
       EncodeAddCharRet( attr, ic );
-      if (be) EncodeAddCharRet( attr, 0 );
+      if (le) EncodeAddCharRet( attr, 0 );
     } else {
       c = MakeByte2( ic );
       if( c < SP ){
-	if (!be) EncodeAddCharRet( attr, 0 );
+	if (!le) EncodeAddCharRet( attr, 0 );
         EncodeAddCharRet( attr, '^' );
 	EncodeAddCharRet( attr, 0 );
         EncodeAddCharRet( attr, '@' + c );
-	if (be) EncodeAddCharRet( attr, 0 );
+	if (le) EncodeAddCharRet( attr, 0 );
       } else if( c < DEL ){
-	if (!be) EncodeAddCharRet( attr, 0 );
+	if (!le) EncodeAddCharRet( attr, 0 );
         EncodeAddCharRet( attr, c );
-	if (be) EncodeAddCharRet( attr, 0 );
+	if (le) EncodeAddCharRet( attr, 0 );
       } else {
-	if (!be) EncodeAddCharRet( attr, 0 );
+	if (!le) EncodeAddCharRet( attr, 0 );
         EncodeAddCharRet( attr, '<' );
 	EncodeAddCharRet( attr, 0 );
         EncodeAddCharRet( attr, HexChar( ( 0xf0 & c ) >> 4 ) );
@@ -180,7 +180,7 @@ public boolean_t EncodeAddPseudo16( int attr, ic_t ic, byte cset,
         EncodeAddCharRet( attr, HexChar( ( 0x0f & c ) ) );
 	EncodeAddCharRet( attr, 0 );
         EncodeAddCharRet( attr, '>' );
-	if (!be) EncodeAddCharRet( attr, 0 );
+	if (!le) EncodeAddCharRet( attr, 0 );
       }
     }
   }

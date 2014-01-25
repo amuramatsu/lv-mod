@@ -343,30 +343,30 @@ public void EncodeUTF8( i_str_t *istr, int head, int tail,
 #ifdef USE_UTF16
 public void DecodeUTF16( state_t *state, byte codingSystem )
 {
-  byte ch1, ch2;
+  byte ch1, ch2; /* hibyte, lobyte */
   ic_t uni;
 
   for( ; ; ){
     if (UTF_16 == codingSystem) {
-      GetChar( ch2 );
       GetChar( ch1 );
+      GetChar( ch2 );
       uni = (ic_t)((ch1 << 8) | ch2);
-      if (uni == UNICODE_BOM) {
-	codingSystem = UTF_16LE;
-	continue;
-      } 
-      uni = (ic_t)((ch2 << 8) | ch1);
       if (uni == UNICODE_BOM) {
 	codingSystem = UTF_16BE;
 	continue;
       } 
-      /* fallthru assume UTF_16LE */
-    } else if (UTF_16BE == codingSystem) {
-      GetChar( ch1 );
+      uni = (ic_t)((ch2 << 8) | ch1);
+      if (uni == UNICODE_BOM) {
+	codingSystem = UTF_16LE;
+	continue;
+      } 
+      /* fallthru assume UTF_16BE */
+    } else if (UTF_16LE == codingSystem) {
       GetChar( ch2 );
+      GetChar( ch1 );
     } else {
-      GetChar( ch2 );
       GetChar( ch1 );
+      GetChar( ch2 );
     }
 
     if (ch1 == 0 && ch2 <= SP ){
@@ -407,7 +407,7 @@ public void EncodeUTF16( i_str_t *istr, int head, int tail,
     attr = (int)istr[ idx ].attr << 8;
     if( cset < PSEUDO ){
       if( ASCII == cset ){
-	if (UTF_16BE == codingSystem) {
+	if (UTF_16LE == codingSystem) {
 	  EncodeAddChar( attr, ic );
 	  EncodeAddChar( attr, 0 );
 	} else {
@@ -417,16 +417,16 @@ public void EncodeUTF16( i_str_t *istr, int head, int tail,
       } else {
 	if( UNICODE != cset )
 	  ic = RevUNI( ic, &cset );
-	if (UTF_16BE == codingSystem) {
-	  EncodeAddChar( attr, ic >> 8 );
+	if (UTF_16LE == codingSystem) {
 	  EncodeAddChar( attr, 0xff & ic );
+	  EncodeAddChar( attr, ic >> 8 );
 	} else {
-	  EncodeAddChar( attr, 0xff & ic );
 	  EncodeAddChar( attr, ic >> 8 );
+	  EncodeAddChar( attr, 0xff & ic );
 	}
       }
     } else if( FALSE == EncodeAddPseudo16( attr, ic, cset, binary,
-					  UTF_16BE == codingSystem ) ){
+					  UTF_16LE == codingSystem ) ){
       break;
     }
   }

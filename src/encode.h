@@ -49,7 +49,7 @@ public boolean_t EncodeAddPseudo( int attr, ic_t ic, byte cset,
 				 boolean_t binary );
 #ifdef USE_UTF16
 public boolean_t EncodeAddPseudo16( int attr, ic_t ic, byte cset,
-				   boolean_t binary, boolean_t be );
+				   boolean_t binary, boolean_t le );
 #endif
 public boolean_t EncodeAddInvalid( int attr, ic_t ic, byte cset );
 
