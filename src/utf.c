@@ -341,7 +341,6 @@ public void EncodeUTF8( i_str_t *istr, int head, int tail,
 }
 
 #ifdef USE_UTF16
-
 public void DecodeUTF16( state_t *state, byte codingSystem )
 {
   byte ch1, ch2;
@@ -423,7 +422,7 @@ public void EncodeUTF16( i_str_t *istr, int head, int tail,
 	  EncodeAddChar( attr, ic >> 8 );
 	}
       }
-    } else if( FALSE == EncodeAddPseudo( attr, ic, cset, binary ) ){
+    } else if( FALSE == EncodeAddPseudo16( attr, ic, cset, binary, UTF_16BE == codingSystem ) ){
       break;
     }
   }
