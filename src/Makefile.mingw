@@ -24,7 +24,7 @@ OBJS = itable.o ctable.o \
 UNIOBJS= utf.o unimap.o unirev.o
 
 lv.exe: $(OBJS) $(UNIOBJS)
-	$(CC) -o $@ $(OBJS) $(UNIOBJS)
+	$(CC) -o $@ $(OBJS) $(UNIOBJS) -lmsvcr80
 
 #
 # cleaning
