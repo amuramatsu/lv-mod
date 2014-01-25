@@ -818,6 +818,7 @@ public void ConsolePrintsStr( str_t *str, int length )
 	}
       }
       curpos.X = 0; curpos.Y++;
+      SetConsoleCursorPosition(hStdout, curpos);
     }
     else
 #endif
@@ -829,6 +830,11 @@ public void ConsolePrintsStr( str_t *str, int length )
   if (cp != charbuf) {
     WriteConsoleOutputCharacter(hStdout, charbuf, cp-charbuf, curpos, &written);
     WriteConsoleOutputAttribute(hStdout, attrbuf, ap-attrbuf, curpos, &written);
+    curpos.X += written;
+    while (curpos.X >= WIDTH) {
+      curpos.X -= WIDTH; curpos.Y++;
+    }
+    SetConsoleCursorPosition(hStdout, curpos);
   }
   ConsoleSetAttribute( 0 );
 #else /* !WIN32NATIVE */
