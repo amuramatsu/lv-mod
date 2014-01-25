@@ -36,6 +36,10 @@
 #include <dos.h>
 #endif /* MSDOS */
 
+#ifdef WIN32NATIVE
+#include <io.h>
+#endif /* WIN32NATIVE */
+
 #include <import.h>
 #include <uty.h>
 #include <begin.h>
@@ -83,7 +87,7 @@ public stream_t *StreamOpen( byte *file )
     if( NULL == (st->fp = (FILE *)tmpfile()) )
       perror( "temporary file" ), exit( -1 );
 
-#ifdef MSDOS
+#if defined(MSDOS) || defined(WIN32NATIVE)
     { int sout;
 
       sout = dup( 1 );
@@ -97,7 +101,7 @@ public stream_t *StreamOpen( byte *file )
 
       return st;
     }
-#endif /* MSDOS */
+#endif /* MSDOS || WIN32NATIVE */
 
 #ifdef UNIX
     { int fds[ 2 ], pid;
@@ -158,12 +162,12 @@ public stream_t *StreamReconnectStdin()
 
   st = StreamAlloc();
 
-#ifdef MSDOS
+#if defined(MSDOS) || defined(WIN32NATIVE)
   if( NULL == (st->fp = fdopen( dup( 0 ), "rb" )) )
     StdinDuplicationFailed();
   close( 0 );
   dup( 1 );
-#endif /* MSDOS */
+#endif /* MSDOS || WIN32NATIVE */
 #ifdef UNIX
   fstat( 0, &sbuf );
   if( S_IFREG == ( sbuf.st_mode & S_IFMT ) ){
