@@ -196,7 +196,8 @@ utfContinue:
 	  if( 0x80 == ( 0xc0 & ch ) ){
 	    /* trailor */
 	    uni |= (ic_t)( 0x3f & ch );
-	    DecodeAddUnicode( state->attr, uni );
+	    if (uni != UNICODE_BOM)
+	      DecodeAddUnicode( state->attr, uni );
 	  }
 	}
       } else {

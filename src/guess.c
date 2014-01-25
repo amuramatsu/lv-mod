@@ -83,6 +83,8 @@ private int isUTF16( byte *str, int length )
     return 0;
   
   /* check BOM */
+  if (length >= 3 && str[0] == 0xef && str[1] == 0xbb && str[2] == 0xbf)
+    return 0; /* with UTF8-BOM */
   if (str[0] == 0xfe && str[1] == 0xff)
     return UTF_16BE;
   if (str[0] == 0xff && str[1] == 0xfe)

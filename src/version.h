@@ -10,7 +10,7 @@
 
 #define VERSION		"v.4.51 (Jan.16th,2004)"
 #if defined(WIN32NATIVE) || defined(USE_UTF16)
-#define PATCH_VERSION	"+002 (Nov.3rd,2011)"
+#define PATCH_VERSION	"+003 (Nov.3rd,2011)"
 #endif
 
 public void Banner();
