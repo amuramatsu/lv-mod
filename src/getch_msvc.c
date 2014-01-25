@@ -4,7 +4,7 @@
   getch/getwch replacement for msvc/mingw32
   (to replace enhenced key prefix 0xE0 with 0x00)
   
-  Licence: ‚¢‚í‚ä‚é Public Domain ‚Á‚Ä‚±‚Æ‚Å
+  Licence: $B$$$o$f$k(J Public Domain $B$C$F$3$H$G(J
            (You can use/modify/redistibute it freely BUT NO WARRANTY.)
   
 */
