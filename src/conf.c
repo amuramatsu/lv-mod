@@ -23,6 +23,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef WIN32NATIVE
+#include <windows.h>
+#endif
 
 #include <import.h>
 #include <itable.h>
@@ -440,9 +443,17 @@ public void ConfInit( byte **argv )
 #if defined(MSDOS) || defined(WIN32NATIVE)
   {
     int i;
+    const char *p;
 
-    helpFile = Malloc( strlen( argv[ 0 ] ) + strlen( LV_HELP ) + 1 );
-    strcpy( helpFile, argv[ 0 ] );
+#ifdef WIN32NATIVE
+    char exe[MAX_PATH];
+    GetModuleFileNameA( NULL, exe, sizeof(exe) );
+    p = exe;
+#else
+    p = argv[ 0 ];
+#endif
+    helpFile = Malloc( strlen( p ) + strlen( LV_HELP ) + 1 );
+    strcpy( helpFile, p );
     for( i = strlen( helpFile ) - 1 ; i >= 0 ; i-- ){
       if( '/' == helpFile[ i ] || '\\' == helpFile[ i ] ){
 	i++;
