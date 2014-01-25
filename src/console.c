@@ -239,9 +239,9 @@ private RETSIGTYPE InterruptHandler( int arg )
 {
   kb_interrupted = TRUE;
 
-#ifndef HAVE_SIGVEC
+#if !(defined(HAVE_SIGVEC) || defined(HAVE_SIGACTION))
   signal( SIGINT, InterruptHandler );
-#endif /* HAVE_SIGVEC */
+#endif /* !(HAVE_SIGVEC || HAVE_SIGACTION) */
 }
 
 public void ConsoleEnableInterrupt()
@@ -342,9 +342,9 @@ private RETSIGTYPE WindowChangeHandler( int arg )
 
   ConsoleGetWindowSize();
 
-#ifndef HAVE_SIGVEC
+#if !(defined(HAVE_SIGVEC) || defined(HAVE_SIGACTION))
   signal( SIGWINCH, WindowChangeHandler );
-#endif /* HAVE_SIGVEC */
+#endif /* !(HAVE_SIGVEC || HAVE_SIGACTION) */
 }
 #endif /* UNIX */
 
@@ -357,8 +357,8 @@ public void ConsoleTermInit()
    */
 
 #ifdef WIN32NATIVE
-  hStdin  = GetStdHandle(STD_INPUT_HANDLE);   /* $BI8=`F~NO%O%s%I%k$N<hF@(J */
-  hStdout = GetStdHandle(STD_OUTPUT_HANDLE);  /* $BI8=`=PNO%O%s%I%k$N<hF@(J */
+  hStdin  = GetStdHandle(STD_INPUT_HANDLE);   /* É¸½àÆþÎÏ¥Ï¥ó¥É¥ë¤Î¼èÆÀ (J*/(B
+  hStdout = GetStdHandle(STD_OUTPUT_HANDLE);  /* É¸½à½ÐÎÏ¥Ï¥ó¥É¥ë¤Î¼èÆÀ (J*/(B
 
   ConsoleGetWindowSize();
   no_scroll = FALSE;
@@ -506,11 +506,11 @@ public void ConsoleSetUp()
 #endif /* MSDOS || WIN32NATIVE */
 
 #ifdef WIN32NATIVE
-  /* stdin $B%j%@%$%l%/%H;~$NBP=h!J(Jstdin$B$r(Junbuffered mode $B$K!K(J*/
+  /* stdin ¥ê¥À¥¤¥ì¥¯¥È»þ¤ÎÂÐ½è¡Ê(Jstdin¤òunbuffered(B (Jmode(B ¤Ë¡Ë(J*/(B
   setvbuf(stdin, NULL, _IONBF, 0);
   setmode(fileno(stdin), O_BINARY);
   if (GetConsoleMode(hStdin, &oldConsoleMode)) {
-    /* Win32$B%3%s%=!<%k$N>l9g$OG0$N$?$a%@%$%l%/%H%b!<%I$K@_Dj(J */
+    /* Win32¥³¥ó¥½¡¼¥ë¤Î¾ì¹ç¤ÏÇ°¤Î¤¿¤á¥À¥¤¥ì¥¯¥È¥â¡¼¥É¤ËÀßÄê (J*/(B
     bStdinIsConsole = TRUE;
     newConsoleMode = oldConsoleMode;
     oldConsoleMode &= ~(ENABLE_PROCESSED_INPUT |
@@ -529,7 +529,22 @@ public void ConsoleSetUp()
   }
 #endif /* WIN32NATIVE */
 
-#ifdef HAVE_SIGVEC
+#ifdef HAVE_SIGACTION
+  struct sigaction sa;
+
+  sigemptyset( &sa.sa_mask );
+# ifndef SA_RESTART
+  sa.sa_flags = 0;
+# else
+  sa.sa_flags = SA_RESTART;
+# endif
+  sa.sa_handler = WindowChangeHandler;
+  (void)sigaction( SIGWINCH, &sa, NULL );
+
+  sa.sa_handler = InterruptHandler;
+  (void)sigaction( SIGINT, &sa, NULL );
+#elif defined(HAVE_SIGVEC)
+# ifdef SV_INTERRUPT
   struct sigvec sigVec;
 
   sigVec.sv_handler = WindowChangeHandler;
@@ -541,12 +556,13 @@ public void ConsoleSetUp()
   sigVec.sv_mask = sigmask( SIGINT );
   sigVec.sv_flags = SV_INTERRUPT;
   sigvec( SIGINT, &sigVec, NULL );
-#else
-# ifdef SIGWINCH
+# else
+#  ifdef SIGWINCH
   signal( SIGWINCH, WindowChangeHandler );
-# endif 
+#  endif 
   signal( SIGINT, InterruptHandler );
-#endif /* HAVE_SIGVEC */
+# endif /* SV_INTERRUPT */
+#endif /* HAVE_SIGACTION || HAVE_SIGVEC */
 
 #ifdef UNIX
 #ifdef HAVE_TERMIOS_H
@@ -665,7 +681,7 @@ public int ConsoleGetChar()
   if (bStdinIsConsole) {
       c = getch_replacement_for_msvc();
   } else {
-      /* stdin $B$,%j%@%$%l%/%H$5$l$F$$$k>l9g!J$o$j$HE,Ev!K(J */
+      /* stdin ¤¬¥ê¥À¥¤¥ì¥¯¥È¤µ¤ì¤Æ¤¤¤ë¾ì¹ç¡Ê¤ï¤ê¤ÈÅ¬Åö¡Ë (J*/(B
       c = fgetc(stdin);
       if (c == '\n') c = '\r';
       if (c == EOF) return EOF;
@@ -816,26 +832,26 @@ public void ConsoleClearScreen()
   coordScreen.X = 0;
   coordScreen.Y = 0;
   
-  /* $B%3%s%=!<%k$N%-%c%i%/%?%P%C%U%!>pJs$r<hF@(J */
+  /* ¥³¥ó¥½¡¼¥ë¤Î¥­¥ã¥é¥¯¥¿¥Ð¥Ã¥Õ¥¡¾ðÊó¤ò¼èÆÀ (J*/(B
   if (GetConsoleScreenBufferInfo(hStdout, &csbi) == FALSE)
     return;
 
-  /* $B%-%c%i%/%?%P%C%U%!%5%$%:$r7W;;(J */
+  /* ¥­¥ã¥é¥¯¥¿¥Ð¥Ã¥Õ¥¡¥µ¥¤¥º¤ò·×»» (J*/(B
   dwConsoleSize = csbi.dwSize.X * csbi.dwSize.Y;
 
-  /* $B%-%c%i%/%?%P%C%U%!$r6uGr$GKd$a$k(J */
+  /* ¥­¥ã¥é¥¯¥¿¥Ð¥Ã¥Õ¥¡¤ò¶õÇò¤ÇËä¤á¤ë (J*/(B
   FillConsoleOutputCharacter(
     hStdout, ' ', dwConsoleSize, coordScreen, &dwCharsWritten);
 
-  /* $B8=:_$N%F%-%9%HB0@-$N<hF@(J */
+  /* ¸½ºß¤Î¥Æ¥­¥¹¥ÈÂ°À­¤Î¼èÆÀ (J*/(B
   if (GetConsoleScreenBufferInfo(hStdout, &csbi) == FALSE)
     return;
 
-  /* $B$9$Y$F$NJ8;z$KBP$7$F<hF@$7$?%F%-%9%HB0@-$rE,MQ$9$k(J */
+  /* ¤¹¤Ù¤Æ¤ÎÊ¸»ú¤ËÂÐ¤·¤Æ¼èÆÀ¤·¤¿¥Æ¥­¥¹¥ÈÂ°À­¤òÅ¬ÍÑ¤¹¤ë (J*/(B
   FillConsoleOutputAttribute(
     hStdout, csbi.wAttributes, dwConsoleSize, coordScreen, &dwCharsWritten);
 
-  /* $B%+!<%=%k0LCV$r:8>e3Q$K0\F0(J */
+  /* ¥«¡¼¥½¥ë°ÌÃÖ¤òº¸¾å³Ñ¤Ë°ÜÆ° (J*/(B
   SetConsoleCursorPosition(hStdout, coordScreen);
 #else
   tputs( clear_screen, 1, putfunc );
@@ -850,27 +866,27 @@ public void ConsoleClearRight()
   DWORD                       dwConsoleSize;
   CONSOLE_SCREEN_BUFFER_INFO  csbi;
 
-  /* $B%3%s%=!<%k$N%-%c%i%/%?%P%C%U%!>pJs$r<hF@(J */
+  /* ¥³¥ó¥½¡¼¥ë¤Î¥­¥ã¥é¥¯¥¿¥Ð¥Ã¥Õ¥¡¾ðÊó¤ò¼èÆÀ (J*/(B
   if (GetConsoleScreenBufferInfo(hStdout, &csbi) == FALSE)
     return;
   coordScreen = csbi.dwCursorPosition;
 
-  /* $B%-%c%i%/%?%P%C%U%!%5%$%:$r7W;;(J */
+  /* ¥­¥ã¥é¥¯¥¿¥Ð¥Ã¥Õ¥¡¥µ¥¤¥º¤ò·×»» (J*/(B
   dwConsoleSize = csbi.dwSize.X - coordScreen.X;
 
-  /* $B%-%c%i%/%?%P%C%U%!$r6uGr$GKd$a$k(J */
+  /* ¥­¥ã¥é¥¯¥¿¥Ð¥Ã¥Õ¥¡¤ò¶õÇò¤ÇËä¤á¤ë (J*/(B
   FillConsoleOutputCharacter(
     hStdout, ' ', dwConsoleSize, coordScreen, &dwCharsWritten);
 
-  /* $B8=:_$N%F%-%9%HB0@-$N<hF@(J */
+  /* ¸½ºß¤Î¥Æ¥­¥¹¥ÈÂ°À­¤Î¼èÆÀ (J*/(B
   if (GetConsoleScreenBufferInfo(hStdout, &csbi) == FALSE)
     return;
 
-  /* $B$9$Y$F$NJ8;z$KBP$7$F<hF@$7$?%F%-%9%HB0@-$rE,MQ$9$k(J */
+  /* ¤¹¤Ù¤Æ¤ÎÊ¸»ú¤ËÂÐ¤·¤Æ¼èÆÀ¤·¤¿¥Æ¥­¥¹¥ÈÂ°À­¤òÅ¬ÍÑ¤¹¤ë (J*/(B
   FillConsoleOutputAttribute(
     hStdout, csbi.wAttributes, dwConsoleSize, coordScreen, &dwCharsWritten);
 
-  /* $B%+!<%=%k0LCV$r$b$H$KLa$9(J */
+  /* ¥«¡¼¥½¥ë°ÌÃÖ¤ò¤â¤È¤ËÌá¤¹ (J*/(B
   SetConsoleCursorPosition(hStdout, coordScreen);
 #else
   tputs( clr_eol, 1, putfunc );
