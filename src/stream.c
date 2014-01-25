@@ -193,7 +193,7 @@ public stream_t *StreamReconnectStdin()
 
   st = StreamAlloc();
 
-#if defined(MSDOS)
+#ifdef MSDOS
   if( NULL == (st->fp = fdopen( dup( 0 ), "rb" )) )
     StdinDuplicationFailed();
   close( 0 );
