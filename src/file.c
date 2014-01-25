@@ -123,20 +123,12 @@ public byte *FileLoadLine( file_t *f, int *length, boolean_t *simple )
     if (IsUtf16Encoding(f->inputCodingSystem)) {
       if ((idx % 2) == 0) {
 	int ch2 = load_array[ count ][idx-2] & 0xff;
-	if (ch == 0 && ch2 == LF) {
-	  /* UNIX style or MS-DOS style by LE */
-	  if (f->inputCodingSystem == UTF_16 ||
-	      f->inputCodingSystem == UTF_16LE)
-	    break;
-	}
-	else if (ch == LF && ch2 == 0) {
-	  /* UNIX style or MS-DOS style by BE */
-	  if (f->inputCodingSystem == UTF_16 ||
-	      f->inputCodingSystem == UTF_16BE)
-	    break;
-	}
+	if ((f->inputCodingSystem != UTF_16BE && ch == 0 && ch2 == LF) ||
+	    (f->inputCodingSystem != UTF_16LE && ch == LF && ch2 == 0))
+	  /* UNIX style or MS-DOS style */
+	  break;
       }
-    } else
+    } else {
 #endif /* USE_UTF16 */
     if( LF == ch ){
       /* UNIX style */
@@ -154,6 +146,9 @@ public byte *FileLoadLine( file_t *f, int *length, boolean_t *simple )
       load_array[ count ][ idx - 1 ] = LF;
       break;
     }
+#ifdef USE_UTF16
+    }
+#endif /* USE_UTF16 */
     if( LOAD_SIZE == idx ){
       count++;
       if( LOAD_COUNT == count )
@@ -257,6 +252,19 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
     while( EOF != (ch = getc( f->sp )) ){
       putc( ch, f->fp );
       count++;
+#ifdef USE_UTF16
+      if (IsUtf16Encoding(f->inputCodingSystem)) {
+	int ch2;
+	if (EOF == (ch2 = getc(f->sp)))
+	  break;
+	putc( ch2, f->fp);
+	count++;
+	if ((f->inputCodingSystem != UTF_16BE && ch == LF && ch2 == 0) ||
+	    (f->inputCodingSystem != UTF_16LE && ch == 0 && ch2 == LF) ||
+	    count >= (LOAD_SIZE*LOAD_COUNT))
+	  goto label1;
+      } else
+#endif /* USE_UTF16 */
       if( LF == ch || CR == ch || count == (LOAD_SIZE * LOAD_COUNT) ){
 	if( CR == ch ){
 	  if( LF != (ch = getc( f->sp )) )
@@ -264,6 +272,9 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
 	  else
 	    putc( LF, f->fp );
 	}
+#ifdef USE_UTF16
+  label1:
+#endif
 	count = 0;
 	if( 0 > (ptr = ftell( f->fp )) )
 	  perror( "FileStretch()" ), exit( -1 );
@@ -299,11 +310,26 @@ public boolean_t FileStretch( file_t *f, unsigned int target )
 #endif /* !(MSDOS || WIN32NATIVE) */
     while( EOF != (ch = getc( f->fp )) ){
       count++;
+#ifdef USE_UTF16
+      if (IsUtf16Encoding(f->inputCodingSystem)) {
+	int ch2;
+	if (EOF == (ch2 = getc(f->fp)))
+	  break;
+	count++;
+	if ((f->inputCodingSystem != UTF_16BE && ch == LF && ch2 == 0) ||
+	    (f->inputCodingSystem != UTF_16LE && ch == 0 && ch2 == LF) ||
+	    count >= (LOAD_SIZE*LOAD_COUNT))
+	  goto label2;
+      } else
+#endif /* USE_UTF16 */
       if( LF == ch || CR == ch || count == (LOAD_SIZE * LOAD_COUNT) ){
 	if( CR == ch ){
 	  if( LF != (ch = getc( f->fp )) )
 	    ungetc( ch, f->fp );
 	}
+#ifdef USE_UTF16
+  label2:
+#endif /* USE_UTF16 */
 	count = 0;
 	if( 0 > (ptr = ftell( f->fp )) )
 	  perror( "FileStretch()" ), exit( -1 );
