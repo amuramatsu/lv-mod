@@ -71,8 +71,27 @@ public void FileFreeLine( file_t *f )
   }
 }
 
+#if defined(__GNUC__)
+#define INLINE inline
+#elif defined(_MSC_VER)
+#define INLINE _inline
+#else
+#define INLINE
+#endif
+
 #ifdef USE_INTERNAL_IOBUF
-public inline int IobufGetc( iobuf_t *iobuf )
+private INLINE int IobufGetc( iobuf_t *iobuf );
+private INLINE int IobufUngetc( int ch, iobuf_t *iobuf );
+private INLINE int IobufFeof( iobuf_t *iobuf );
+#else
+# define IobufGetc( a )		getc( (a)->iop )
+# define IobufUngetc( a, b )	ungetc( a, (b)->iop )
+# define IobufFeof( a )		feof( (a)->iop )
+#endif
+#define IobufPutc( a, b )	putc( a, (b)->iop )
+
+#ifdef USE_INTERNAL_IOBUF
+private INLINE int IobufGetc( iobuf_t *iobuf )
 {
   if( iobuf->ungetc != EOF ){
     int ch = iobuf->ungetc;
@@ -90,7 +109,7 @@ public inline int IobufGetc( iobuf_t *iobuf )
   return iobuf->buf[ iobuf->cur++ ];
 }
 
-public inline int IobufUngetc( int ch, iobuf_t *iobuf )
+private INLINE IobufUngetc( int ch, iobuf_t *iobuf )
 {
   if( iobuf->cur == 0 ){
     /* XXX: it should be tied to fp sanely */
@@ -127,7 +146,7 @@ public int IobufFseek( iobuf_t *iobuf, offset_t off, int mode )
 # endif
 }
 
-public int IobufFeof( iobuf_t *iobuf )
+private INLINE IobufFeof( iobuf_t *iobuf )
 {
   if( iobuf->cur == iobuf->last ){
     return feof( iobuf->iop );

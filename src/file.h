@@ -160,8 +160,6 @@ public byte *FileName( file_t *f );
 public void FileInit();
 
 #ifndef USE_INTERNAL_IOBUF
-# define IobufGetc( a )		getc( (a)->iop )
-# define IobufUngetc( a, b )	ungetc( a, (b)->iop )
 # ifdef HAVE_FSEEKO
 #  define IobufFtell( a )	ftello( (a)->iop )
 #  define IobufFseek( a, b, c )	fseeko( (a)->iop, b, c)
@@ -169,14 +167,9 @@ public void FileInit();
 #  define IobufFtell( a )	ftell( (a)->iop )
 #  define IobufFseek( a, b, c )	fseek( (a)->iop, b, c)
 # endif
-# define IobufFeof( a )		feof( (a)->iop )
 #else
-public inline int IobufGetc( iobuf_t *iobuf );
-public inline int IobufUngetc( int ch, iobuf_t *iobuf );
 public offset_t IobufFtell( iobuf_t *iobuf );
-public int IobufFseeko( iobuf_t *iobuf, offset_t off, int mode );
-public int IobufFeof( iobuf_t *iobuf );
+public int IobufFseek( iobuf_t *iobuf, offset_t off, int mode );
 #endif
-#define IobufPutc( a, b )	putc( a, (b)->iop )
 
 #endif /* __FILE_H__ */

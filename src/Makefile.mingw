@@ -5,7 +5,7 @@
 
 # MinGW compiler
 CC = gcc
-CFLAGS = -O2 -I. -DWIN32NATIVE -DRETSIGTYPE=void -DHAVE_SETLOCALE -DUSE_UTF16
+CFLAGS = -O2 -I. -DWIN32NATIVE -DRETSIGTYPE=void -DHAVE_SETLOCALE -DUSE_UTF16 -DUSE_INTERNAL_IOBUF
 
 ########################################################################
 # You don't have to change the following.
