@@ -76,6 +76,8 @@ private int isUTF16( byte *str, int length )
 {
   int i;
   byte ch1, ch2;
+  int le_score = 0;
+  int be_score = 0;
  
   if (length < 2)
     return 0;
@@ -85,7 +87,29 @@ private int isUTF16( byte *str, int length )
     return UTF_16BE;
   if (str[0] == 0xff && str[1] == 0xfe)
     return UTF_16LE;
-  
+  for (i = 0; i < length; i += 2) {
+    if (str[i] == 0) {
+      if (str[i+1] == SP || str[i+1] == HT ||
+	  str[i+1] == CR || str[i+1] == LF) {
+	be_score += 3;
+      }
+      else if (str[i+1] < DEL) {
+	be_score++;
+      }
+    } else if (str[i+1] == 0) {
+      if (str[i] == SP || str[i] == HT ||
+	  str[i] == CR || str[i] == LF) {
+	le_score += 3;
+      }
+      else if (str[i] < DEL) {
+	le_score++;
+      }
+    }
+  }
+  if (be_score > le_score*5 && be_score*5 > length)
+    return UTF_16BE;
+  if (le_score > be_score*5 && le_score*5 > length)
+    return UTF_16LE;
   return 0;
 }
 #endif /* USE_UTF16 */
