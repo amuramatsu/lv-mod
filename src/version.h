@@ -9,7 +9,7 @@
 #define __VERSION_H__
 
 #define VERSION		"v.4.51.a (Oct.30th,2005)"
-#define PATCH_VERSION	"+006 (Apr.14th,2013)"
+#define PATCH_VERSION	"+007 (Dec.5th,2014)"
 
 public void Banner();
 
