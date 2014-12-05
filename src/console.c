@@ -299,13 +299,29 @@ public void ConsoleResetAnsiSequence()
   ansi_hilight		= "1";
 }
 
-#if defined(MSDOS) || defined(WIN32NATIVE)
+#ifdef MSDOS
 private void InterruptIgnoreHandler( int arg )
 {
   signal( SIGINT, InterruptIgnoreHandler );
 }
-#endif /* MSDOS || WIN32NATIVE */
+#endif /* MSDOS */
 
+#ifdef WIN32NATIVE
+private BOOL WINAPI InterruptIgnoreHandler( DWORD type )
+{
+  if (type == CTRL_C_EVENT || type == CTRL_BREAK_EVENT)
+    return TRUE;
+  return FALSE;
+}
+
+private BOOL WINAPI InterruptHandler( DWORD type)
+{
+  kb_interrupted = TRUE;
+  if (type == CTRL_C_EVENT || type == CTRL_BREAK_EVENT)
+    return TRUE;
+  return FALSE;
+}
+#else /* !WIN32NATIVE */
 private RETSIGTYPE InterruptHandler( int arg )
 {
   kb_interrupted = TRUE;
@@ -314,13 +330,14 @@ private RETSIGTYPE InterruptHandler( int arg )
   signal( SIGINT, InterruptHandler );
 #endif /* !(HAVE_SIGVEC || HAVE_SIGACTION) */
 }
+#endif /* WIN32NATIVE */
 
 public void ConsoleEnableInterrupt()
 {
 #ifdef WIN32NATIVE
   DWORD dw;
   allow_interrupt = TRUE;
-  signal( SIGINT, InterruptHandler );
+  SetConsoleCtrlHandler( InterruptHandler, TRUE );
   GetConsoleMode(hConIn, &dw);
   SetConsoleMode(hConIn, dw | ENABLE_PROCESSED_INPUT );
 #endif /* WIN32NATIVE */
@@ -349,7 +366,7 @@ public void ConsoleDisableInterrupt()
   GetConsoleMode(hConIn, &dw);
   SetConsoleMode(hConIn, dw & ~ENABLE_PROCESSED_INPUT );
   allow_interrupt = FALSE;
-  signal( SIGINT, InterruptIgnoreHandler );
+  SetConsoleCtrlHandler( InterruptIgnoreHandler, TRUE );
 #endif /* WIN32NATIVE */
 
 #ifdef MSDOS
@@ -585,11 +602,12 @@ public void ConsoleTermInit()
 
 public void ConsoleSetUp()
 {
-#if defined(MSDOS) || defined(WIN32NATIVE)
+#ifdef MSDOS
   signal( SIGINT, InterruptIgnoreHandler );
-#endif /* MSDOS || WIN32NATIVE */
+#endif /* MSDOS */
 
 #ifdef WIN32NATIVE
+  SetConsoleCtrlHandler( InterruptIgnoreHandler, TRUE );
   if (GetConsoleMode(hConIn, &oldConsoleMode)) {
     COORD size;
     newConsoleMode = oldConsoleMode;
