@@ -29,6 +29,9 @@
 #if defined(HAVE_LANGINFO_CODESET)
 #include <langinfo.h>
 #endif
+#ifdef WIN32NATIVE
+#include <windows.h>
+#endif
 
 #include <import.h>
 #include <ctable.h>
@@ -52,9 +55,23 @@ public byte LocaleCodingSystem( char *language )
   strcpy( language, "ja_JP" );
   return SHIFT_JIS;
 #elif defined(WIN32NATIVE)
-//XXX PLEASE IMPLEMENT LocaleCodingSystem()."
-  strcpy( language, "ja_JP" );
-  return SHIFT_JIS;
+  switch (GetUserDefaultUILanguage()) {
+  case 2052: /* Chinese (Simplified) */
+    strcpy( language, "zh_CN");
+    return HZ_GB; /* ??? */
+  case 1028: /* Chinese (Traditional) */
+    strcpy( language, "zh_TW");
+    return BIG_FIVE;
+  case 1041: /* Japanese */
+    strcpy( language, "ja_JP");
+    return SHIFT_JIS;
+  case 1042: /* Korean */
+    strcpy( language, "ko");
+    return EUC_KOREA;
+  }
+  /* ANSI is almost same as English? */
+  strcpy( language, "en" );
+  return ISO_8859_1;
 #elif !defined(HAVE_LANGINFO_CODESET)
 #warning "XXX There isn't nl_langinfo(CODESET) functionality."
 #warning "XXX Using fixed value ``ja_JP'' and EUC_JAPAN..."
