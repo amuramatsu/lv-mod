@@ -90,7 +90,7 @@ private int isUTF16( byte *str, int length )
     return UTF_16BE;
   if (str[0] == 0xff && str[1] == 0xfe)
     return UTF_16LE;
-  for (i = 0; i < length; i += 2) {
+  for (i = 0; i < length-1; i += 2) {
     if (str[i] == 0) {
       if (str[i+1] == SP || str[i+1] == HT ||
 	  str[i+1] == CR || str[i+1] == LF) {
