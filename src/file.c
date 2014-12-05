@@ -109,7 +109,7 @@ private INLINE int IobufGetc( iobuf_t *iobuf )
   return iobuf->buf[ iobuf->cur++ ];
 }
 
-private INLINE IobufUngetc( int ch, iobuf_t *iobuf )
+private INLINE int IobufUngetc( int ch, iobuf_t *iobuf )
 {
   if( iobuf->cur == 0 ){
     /* XXX: it should be tied to fp sanely */
@@ -153,7 +153,7 @@ public int IobufFseek( iobuf_t *iobuf, offset_t off, int mode )
 # endif
 }
 
-private INLINE IobufFeof( iobuf_t *iobuf )
+private INLINE int IobufFeof( iobuf_t *iobuf )
 {
   if( iobuf->cur == iobuf->last ){
     return feof( iobuf->iop );

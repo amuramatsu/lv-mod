@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <locale.h>
+#include <ctype.h>
 #if defined(HAVE_LANGINFO_CODESET)
 #include <langinfo.h>
 #endif
