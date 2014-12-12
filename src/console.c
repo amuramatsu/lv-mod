@@ -896,8 +896,7 @@ public void ConsolePrintsStr( str_t *str, int length )
   
   cp = charbuf; ap = attrbuf;
   for (i=0; i < length; i++) {
-#if 0
-    if (str[i] & 0xff == LF) {
+    if ((str[i] & 0xff) == LF) {
       if (cp != charbuf) {
 	WriteConsoleOutputCharacter(hStdout, (LPCTSTR)charbuf, cp-charbuf,
 				    curpos, &written);
@@ -913,7 +912,6 @@ public void ConsolePrintsStr( str_t *str, int length )
       SetConsoleCursorPosition(hStdout, curpos);
     }
     else
-#endif
     {
 #ifdef _UNICODE
       if ((i % 2) == 1) {
